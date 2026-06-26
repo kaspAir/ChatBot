@@ -1,0 +1,11 @@
+# Secrets
+.env
+
+# Knowledge-Dokumente nicht ins Repo (nur lokal für den einmaligen Upload nötig)
+/knowledge/*
+!/knowledge/.gitkeep
+
+# Sonstiges
+*.log
+.DS_Store
+Thumbs.db
