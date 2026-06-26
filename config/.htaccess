@@ -1,0 +1,9 @@
+# Schützt Konfiguration und Secrets vor direktem Web-Zugriff (Defense-in-Depth).
+# Greift nur, falls dieser Ordner versehentlich im Web-Root liegt.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
