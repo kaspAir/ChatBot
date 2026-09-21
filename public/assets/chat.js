@@ -16,10 +16,10 @@
         if (sources.length) {
             const details = document.createElement('details');
             const summary = document.createElement('summary');
-            summary.textContent = 'Suchtreffer im Referenzhandbuch anzeigen';
+            summary.textContent = 'Textbelege im Referenzhandbuch anzeigen';
             details.appendChild(summary);
             const note = document.createElement('p');
-            note.textContent = 'Diese Textstellen wurden aus den zitierten Dateien gefunden. Prüfe, ob sie die Antwort tragen.';
+            note.textContent = 'Diese Textbelege wurden im angegebenen Kapitel gefunden. Die Nummern ordnen sie den Aussagen zu. Prüfe, ob die Schlussfolgerungen stimmen.';
             details.appendChild(note);
             sources.forEach((source) => {
                 const quote = document.createElement('blockquote');

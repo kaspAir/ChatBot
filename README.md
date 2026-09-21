@@ -2,7 +2,7 @@
 
 PHP-Anwendung für Infomaniak (PHP 8.4, cURL, mbstring). Der Browser spricht ausschliesslich mit dem eigenen Server; dieser verwendet die OpenAI Responses API mit File Search. Das Handbuch wird einmal in einen OpenAI Vector Store geladen. Es wird nicht bei jeder Frage vollständig übertragen.
 
-**Stand: technische Arbeitsfassung.** Vor einer Veröffentlichung sind echte Tests mit der freigegebenen Handbuchversion erforderlich. Im Repository befinden sich weder das Handbuch noch Zugangsdaten. Die technische Quellenprüfung garantiert keine inhaltliche Richtigkeit und verifiziert keine Kapitelnummern.
+**Stand: technische Arbeitsfassung.** Vor einer Veröffentlichung sind echte Tests mit der freigegebenen Handbuchversion erforderlich. Im Repository befinden sich weder das Handbuch noch Zugangsdaten. Die technische Quellenprüfung kontrolliert Belegwortlaut und Kapitelzuordnung, garantiert aber keine inhaltliche Richtigkeit der Schlussfolgerungen.
 
 ## Einrichtung
 
@@ -15,11 +15,11 @@ PHP-Anwendung für Infomaniak (PHP 8.4, cURL, mbstring). Der Browser spricht aus
 
 ## Antworten und Quellen
 
-- Jede Anfrage erzwingt File Search; höchstens sechs Treffer je Suche und 1'800 Ausgabetokens sind konfiguriert.
+- Jede Anfrage erzwingt File Search; höchstens zehn Treffer je Suche und 2'400 Ausgabetokens sind konfiguriert.
 - Nur die letzten drei erfolgreichen Frage-Antwort-Paare werden als Gesprächskontext übermittelt. Suchtreffer werden nicht im Verlauf wiederholt. Bei Themenwechsel «Neue Unterhaltung» verwenden. Verweise auf ältere Gesprächsinhalte können verloren gehen.
 - `store: false` deaktiviert die Speicherung des Response-Objekts bei OpenAI. Dies ist **keine** Zusage vollständiger Datenlöschung: Dateien/Vector Stores, betriebliche API-Aufbewahrungsregeln und die PHP-Session sind davon getrennt. Fragen und kurze Antworten bleiben im serverseitigen Session-Verlauf bis Reset/Session-Bereinigung.
-- Fachliche Antworten benötigen eine abgeschlossene Suche, nichtleere Treffer, Dateizitate auf aktuell gefundene Dateien und die Überschrift «Grundlage im Referenzhandbuch». Andernfalls erscheint eine feste Enthaltung.
-- Ausklappbare Textstellen sind Suchtreffer aus zitierten Dateien, keine automatisch verifizierten Belege für jede einzelne Aussage. Dateizitate beweisen insbesondere keine Kapitelnummer. Bei unzureichender Qualität ist eine Aufbereitung nach Kapiteln plus strengere Absatz-/Belegprüfung der nächste Schritt.
+- Fachliche Antworten werden als strukturierte Aussagen mit Kapitelnummer und wörtlichem Beleg angefordert. Der Server prüft für jede Aussage, ob ihr Beleg im angegebenen Kapitel eines aktuellen Suchtreffers vorkommt. Er erzeugt Quellenliste und Belegnummern selbst. Fehlende Grundlage und fehlgeschlagene technische Prüfung erhalten unterschiedliche Meldungen.
+- Ausklappbare Textstellen sind die wortlautgeprüften Belege zu den nummerierten Aussagen. Die Kapitelzuordnung wird innerhalb des jeweiligen Suchtreffers geprüft. Die logische Folgerung aus einem Zitat wird dadurch nicht automatisch bewiesen. Abschnitte ohne enthaltene Kapitelüberschrift können nicht verwendet werden; eine Aufbereitung nach Kapiteln bleibt eine mögliche Verbesserung.
 - Antworten zu Anbieter-Ranglisten oder Beratungsangeboten sind nicht durch das Handbuch gedeckt. Es gibt derzeit keine automatische Werbung. Freigegebene BKI-Informationen müssten als eigene, klar getrennte Quelle ergänzt werden.
 - Kein Webwissen, keine Bildausgabe und keine Behauptung, niemals Fehler zu machen. Dokumententwürfe verwenden Platzhalter für fehlende Projektdaten.
 
@@ -79,3 +79,9 @@ Die Aktivierung ist ein CLI-Werkzeug für den Betreiber, noch keine Administrati
 Die am 21.09.2026 gelieferte PDF-Fassung enthält 215 Dateiseiten und 17 erkannte grüne Textspannen (mehrere Spannen können eine Ergänzung bilden). Beispiele sind die BKI-Empfehlung auf PDF-Seite 3, die Klarstellung zum fehlenden Phasenbericht Initialisierung auf PDF-Seiten 21/34/59 und die Rollenbesetzung auf PDF-Seite 151. Diese Angaben dokumentieren die Arbeitsfassung; sie bestätigen nicht unabhängig die methodische Richtigkeit der Ergänzungen. Eine amtliche Vergleichsfassung wurde nicht geprüft.
 
 Die grünen fachlichen Texte sind gemäss Betreiber verbindliche Ergänzungen der Wissensgrundlage, keine Empfehlungen. Die Herkunft wird für die Pflege markiert, ohne sie in jeder Antwort gesondert relativieren zu müssen. Ausgenommen ist die BKI-Werbung; sie begründet keine objektive Anbieter-Rangliste.
+
+### Live-Diagnose
+
+`php tools/test_question.php VERSION 'Frage' --debug` testet einen indexierten Stand ohne Aktivierung. Die Ausgabe enthält einen Diagnosecode und mit `--debug` auch die ungefilterte Modellantwort und Suchtreffer, jedoch keine API-Zugangsdaten. Keine vertraulichen Inhalte öffentlich posten. Jede Ausführung verursacht einen API-Aufruf.
+
+Structured Outputs erzwingt nur die Antwortstruktur; auch passende Zitate können falsch interpretiert werden. Deshalb bleibt die fachliche Abnahme zwingend. Dokumentation: https://developers.openai.com/api/docs/guides/structured-outputs

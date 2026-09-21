@@ -80,7 +80,7 @@ if ($answer['grounded']) {
     $history[] = ['role' => 'assistant', 'content' => $answer['reply']];
     $_SESSION['history'] = array_slice($history, -6);
 }
-error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId, 'evidence_present' => $answer['grounded'], 'source_count' => count($answer['sources'])]));
-unset($answer['grounded']);
+error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId, 'evidence_present' => $answer['grounded'], 'source_count' => count($answer['sources']), 'diagnostic' => $answer['diagnostic'] ?? null]));
+unset($answer['grounded'], $answer['diagnostic']);
 $answer['knowledge_version'] = $config['knowledge_version'];
 respond(200, $answer);

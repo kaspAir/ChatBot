@@ -28,3 +28,8 @@ if ($status !== 200 || !is_array($result)) {
     fwrite(STDERR, "$text\n"); exit(1);
 }
 echo json_encode(hermes_answer($result), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
+
+if (in_array('--debug', $argv, true)) {
+    echo "\nDiagnose: ungefilterte Modellantwort und Suchtreffer (keine Zugangsdaten)\n";
+    echo json_encode($result['output'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
+}

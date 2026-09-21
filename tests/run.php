@@ -7,35 +7,46 @@ function check(bool $ok, string $label): void {
     if (!$ok) { fwrite(STDERR, "FAIL: $label\n"); exit(1); }
     $count++;
 }
-$r = ['status' => 'completed', 'output' => [
-    ['type' => 'file_search_call', 'status' => 'completed', 'results' => [['file_id' => 'file_test', 'text' => 'Testabschnitt: ein Quellentext.']]],
-    ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => "Testantwort\nGrundlage im Referenzhandbuch: Testabschnitt", 'annotations' => [['type' => 'file_citation', 'file_id' => 'file_test']]]]],
+function fixture(array $answer, ?string $evidence = null): array {
+    $evidence ??= "7.4.1.6 Reporting\nAm Ende der Phasen Konzept, Realisierung, Einführung und Umsetzung werden die Ergebnisse der Phase aufbereitet.\n3.4.1.1 Projektsteuerung\n[ERGÄNZUNG KASPAR/BKI: Es gibt keinen Phasenbericht Initialisierung.]";
+    return ['status' => 'completed', 'output' => [
+        ['type' => 'file_search_call', 'status' => 'completed', 'results' => [['file_id' => 'file_test', 'text' => $evidence]]],
+        ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($answer)]]],
+    ]];
+}
+$a = ['sufficient_evidence' => true, 'claims' => [
+    ['statement' => 'Für die Initialisierung gibt es keinen Phasenbericht.', 'chapter' => '3.4.1.1', 'evidence_quote' => 'Es gibt keinen Phasenbericht Initialisierung.'],
 ]];
-check(hermes_answer($r)['grounded'], 'Antwort mit aktuellen Dateibelegen zugelassen');
-check(count(hermes_answer($r)['sources']) === 1, 'Suchtreffer angezeigt');
+$r = fixture($a);
+check(hermes_answer($r)['grounded'], 'Wörtlicher Beleg im richtigen Kapitel akzeptiert');
+check(str_contains(hermes_answer($r)['reply'], '[1] Kapitel 3.4.1.1 – Projektsteuerung'), 'Quelle aus gefundenem Titel erzeugt');
+check(count(hermes_answer($r)['sources']) === 1, 'Nur verwendeter Beleg ausgegeben');
+$bad = $a; $bad['claims'][0]['chapter'] = '99.1';
+check(!hermes_answer(fixture($bad))['grounded'], 'Erfundenes Kapitel gesperrt');
+$bad = $a; $bad['claims'][0]['chapter'] = '7.4.1.6';
+check(!hermes_answer(fixture($bad))['grounded'], 'Richtiger Wortlaut unter falschem Kapitel gesperrt');
+$bad = $a; $bad['claims'][0]['evidence_quote'] = 'Es gibt immer einen Phasenbericht Initialisierung.';
+check(!hermes_answer(fixture($bad))['grounded'], 'Erfundener Wortlaut gesperrt');
+$bad = $a; $bad['claims'][0]['chapter'] = 'Kapitel nicht ermittelt';
+check(!hermes_answer(fixture($bad))['grounded'], 'Unbestimmte Kapitelangabe gesperrt');
+$bad = $a; $bad['claims'][] = ['statement' => 'Unbelegte Zusatzbehauptung', 'chapter' => '', 'evidence_quote' => ''];
+check(!hermes_answer(fixture($bad))['grounded'], 'Unbelegte zusätzliche Aussage sperrt Antwort');
 $bad = $r; $bad['output'][0]['results'] = [];
-check(!hermes_answer($bad)['grounded'], 'Leere Suche sperrt Fachantwort');
-$bad = $r; $bad['output'][1]['content'][0]['annotations'][0]['file_id'] = 'invented';
-check(!hermes_answer($bad)['grounded'], 'Erfundene Datei gesperrt');
-$bad = $r; $bad['output'][1]['content'][0]['annotations'] = [];
-check(!hermes_answer($bad)['grounded'], 'Fehlende Annotation gesperrt');
-$bad = $r; $bad['status'] = 'incomplete';
-check(!hermes_answer($bad)['grounded'], 'Unvollständige Antwort gesperrt');
+check(!hermes_answer($bad)['grounded'], 'Keine Treffer');
 $bad = $r; $bad['output'][0]['status'] = 'failed';
-check(!hermes_answer($bad)['grounded'], 'Fehlgeschlagene Suche gesperrt');
-$bad = $r; $bad['output'][1]['content'][0]['text'] = 'Unbelegte Antwort';
-check(!hermes_answer($bad)['grounded'], 'Fehlende Quellengrundlage gesperrt');
-check(hermes_error(429, 'insufficient_quota')[0] === 503, 'Quota nicht als kurzfristiges Limit behandelt');
-check(hermes_error(429, 'rate_limit_exceeded')[0] === 429, 'Rate-Limit erkannt');
-check(hermes_error(0, '')[0] === 504, 'Timeout erkannt');
+check(!hermes_answer($bad)['grounded'], 'Fehlgeschlagene Suche');
+$bad = $r; $bad['status'] = 'incomplete';
+check(!hermes_answer($bad)['grounded'], 'Unvollständige Antwort');
+$bad = $r; $bad['output'][1]['content'][0]['text'] = 'Freitext ohne Struktur';
+check(!hermes_answer($bad)['grounded'], 'Unstrukturierter Freitext');
+check(hermes_answer(fixture(['sufficient_evidence' => false, 'claims' => []]))['diagnostic'] === 'model_abstained', 'Fachliche Enthaltung separat erkannt');
+check(hermes_normalize("Die Er-\ngebnisse  der Phase") === 'Die Ergebnisse der Phase', 'PDF-Trennungen normalisiert');
+check(hermes_sections("3.4.1.1\nProjektsteuerung\nText")[0]['title'] === 'Projektsteuerung', 'Kapitelüberschrift mit Zeilenumbruch');
+check(hermes_error(429, 'insufficient_quota')[0] === 503, 'Quota separat');
+check(hermes_error(429, 'rate_limit_exceeded')[0] === 429, 'Rate Limit separat');
+check(hermes_error(0, '')[0] === 504, 'Timeout separat');
 $p = hermes_payload(['model'=>'test', 'system_prompt'=>'test', 'vector_store_id'=>'vs_test'], 'Frage', array_fill(0, 20, ['role'=>'user','content'=>'alt']));
 check(count($p['input']) === 7, 'Kontext begrenzt');
-check($p['tool_choice'] === 'required' && $p['store'] === false, 'Suche erzwungen und Response-Speicherung deaktiviert');
-$numbered = $r;
-$numbered['output'][0]['results'][0]['text'] = "7.4.1.6 Reporting\nTestbeleg";
-check(!hermes_answer($numbered)['grounded'], 'Vorhandene Kapitelnummer nicht durch Stichwort ersetzen');
-$numbered['output'][1]['content'][0]['text'] = "Testantwort\nGrundlage im Referenzhandbuch: Kapitel 7.4.1.6 – Reporting";
-check(hermes_answer($numbered)['grounded'], 'Existierende Kapitelnummer akzeptiert');
-$numbered['output'][1]['content'][0]['text'] = "Testantwort\nGrundlage im Referenzhandbuch: Kapitel 99.1 – Erfunden";
-check(!hermes_answer($numbered)['grounded'], 'Nicht gefundene Kapitelnummer gesperrt');
+check($p['tool_choice'] === 'required' && $p['store'] === false, 'Suche erzwungen, keine Response-Speicherung');
+check($p['text']['format']['strict'] === true, 'Strukturiertes Antwortschema angefordert');
 echo "$count Prüfungen erfolgreich.\n";
