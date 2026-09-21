@@ -83,7 +83,7 @@
         try {
             const data = await request({message});
             if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('Der Server hat keine Antwort geliefert.');
-            addMessage(data.reply, 'bot', Array.isArray(data.sources) ? data.sources : []);
+            addMessage(data.reply + (data.knowledge_version ? '\n\nWissensstand: ' + data.knowledge_version : ''), 'bot', Array.isArray(data.sources) ? data.sources : []);
         } catch (error) {
             addMessage(errorText(error), 'bot');
             input.value = message;

@@ -48,3 +48,34 @@ node --check public/assets/chat.js
 GitHub Actions führt dieselben Prüfungen mit PHP 8.4 aus. Sie prüfen die technische Quellen- und Fehlerbehandlung ohne API-Kosten. Sie ersetzen keine fachliche Abnahme.
 
 Die fachliche Abnahme steht in [tests/acceptance.md](tests/acceptance.md). Vor der Freigabe müssen die erwarteten Kapitel anhand der tatsächlichen Handbuchversion ergänzt und die Antworten geprüft werden.
+
+## Wissensstände nachpflegen (Infomaniak / chatbot.hermespia.ch)
+
+Zielhosting bestätigt: Infomaniak, Domain `chatbot.hermespia.ch`, Webroot `public/`. Aktualisierungen werden bewusst freigegeben; es gibt keinen automatischen Import von Änderungen einer externen Website.
+
+1. Neue PDF-Fassung mit einer eindeutigen Versionskennung versehen, z.B. `2025-10-03-bki-1`. PDF und Quellenfassung ausserhalb des öffentlichen Webroots archivieren.
+2. Auf dem eigenen Rechner Python mit PyMuPDF installieren (`python -m pip install PyMuPDF`). Aufbereiten:
+   ```sh
+   python tools/prepare_handbook.py handbuch.pdf knowledge/prepared/2025-10-03-bki-1 --version 2025-10-03-bki-1
+   ```
+   Das Zielverzeichnis darf noch nicht existieren. Das Werkzeug erzeugt suchbaren Text mit PDF-Seiten und markiert grüne Textabschnitte als Ergänzungen Kaspar/BKI. `review.json` enthält PDF-Prüfsumme und erkannte Ergänzungen. Farberkennung bleibt eine Heuristik; andere Farben werden nicht automatisch als Ergänzungen erkannt. Tabellen, Grafiken und Lesereihenfolge prüfen. Das ist keine Rekonstruktion einer amtlichen Originalfassung.
+3. Nach Prüfung die Textdatei auf dem Server bereitstellen und als neuen, separaten Vector Store hochladen:
+   ```sh
+   php tools/setup_vectorstore.php --version 2025-10-03-bki-1 knowledge/prepared/2025-10-03-bki-1/referenzhandbuch.txt
+   ```
+   Erst nach erfolgreicher Indexierung entsteht `knowledge/releases/2025-10-03-bki-1.json`. Neue Versionen überschreiben den aktiven Wissensstand nicht. PDF und aufbereitete Textdatei nicht gemeinsam indexieren, sonst wäre derselbe Inhalt einmal mit und einmal ohne Ergänzungskennzeichnung vorhanden.
+4. In einer separaten, passwortgeschützten Testinstallation den neuen Stand aktivieren und `tests/acceptance.md` durchführen. Die gleiche Release-Datei kann danach in die Produktionsinstallation übernommen werden, sofern beide dasselbe OpenAI-Projekt nutzen.
+5. Nach fachlicher Prüfung aktivieren:
+   ```sh
+   php tools/activate_knowledge.php 2025-10-03-bki-1 --reviewed
+   ```
+   `knowledge/active.json` hat Vorrang vor `OPENAI_VECTOR_STORE_ID`. Der Bot zeigt die Versionskennung an. Beim nächsten Aufruf einer bestehenden Sitzung wird ihr alter Gesprächskontext gelöscht.
+6. Rückwechsel: denselben Aktivierungsbefehl mit der vorherigen Versionskennung ausführen. Alte Vector Stores dafür erhalten; sie verursachen gegebenenfalls weiterhin Speicherkosten. Keine automatische Löschung.
+
+Die Aktivierung ist ein CLI-Werkzeug für den Betreiber, noch keine Administrationsoberfläche. Das normale Aktualisieren des Codes darf `.env` und `knowledge/` auf dem Server nicht löschen. Verzeichnisse und Dateien müssen für den PHP-Prozess lesbar sein, Änderungen an Freigabedateien nur für Administratoren möglich. Immer nur einen Upload je Versionskennung gleichzeitig starten.
+
+### Prüfung der gelieferten Fassung
+
+Die am 21.09.2026 gelieferte PDF-Fassung enthält 215 Dateiseiten und 17 erkannte grüne Textspannen (mehrere Spannen können eine Ergänzung bilden). Beispiele sind die BKI-Empfehlung auf PDF-Seite 3, die Klarstellung zum fehlenden Phasenbericht Initialisierung auf PDF-Seiten 21/34/59 und die Rollenbesetzung auf PDF-Seite 151. Diese Angaben dokumentieren die Arbeitsfassung; sie bestätigen nicht unabhängig die methodische Richtigkeit der Ergänzungen. Eine amtliche Vergleichsfassung wurde nicht geprüft.
+
+Die grünen fachlichen Texte sind gemäss Betreiber verbindliche Ergänzungen der Wissensgrundlage, keine Empfehlungen. Die Herkunft wird für die Pflege markiert, ohne sie in jeder Antwort gesondert relativieren zu müssen. Ausgenommen ist die BKI-Werbung; sie begründet keine objektive Anbieter-Rangliste.

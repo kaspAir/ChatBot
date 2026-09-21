@@ -26,6 +26,19 @@ if (!$apiKey) {
 }
 
 $files = array_slice($argv, 1);
+$version = null;
+if (($files[0] ?? '') === '--version') {
+    array_shift($files);
+    $version = array_shift($files) ?? '';
+    if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/D', $version)) {
+        fwrite(STDERR, "Ungültige Versionskennung.\n"); exit(1);
+    }
+    $releaseDir = __DIR__ . '/../knowledge/releases';
+    if (!is_dir($releaseDir) && !mkdir($releaseDir, 0700, true)) exit(1);
+    if (file_exists("$releaseDir/$version.json")) {
+        fwrite(STDERR, "Version existiert bereits; neue Kennung verwenden.\n"); exit(1);
+    }
+}
 if (!$files) {
     $files = [__DIR__ . '/../knowledge/Referenzhandbuch Projektmanagement HERMES 2022 DE 20251003_clean_BKI.pdf'];
 }
@@ -127,3 +140,14 @@ echo "\n========================================\n";
 echo "FERTIG. Trage in deine .env ein:\n\n";
 echo "OPENAI_VECTOR_STORE_ID=$vsId\n";
 echo "========================================\n";
+
+if ($version !== null) {
+    $record = ['version' => $version, 'status' => 'indexed', 'vector_store_id' => $vsId,
+        'indexed_at' => gmdate('c'), 'files' => array_map(fn($path) => ['name' => basename($path), 'sha256' => hash_file('sha256', $path)], $files)];
+    $handle = fopen("$releaseDir/$version.json", 'x');
+    if (!$handle || fwrite($handle, json_encode($record, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) === false) {
+        fwrite(STDERR, "Versionsprotokoll konnte nicht geschrieben werden. Store-ID oben sichern.\n"); exit(1);
+    }
+    fclose($handle);
+    echo "Version $version indexiert, noch nicht aktiviert. Erst fachlich prüfen, dann activate_knowledge.php verwenden.\n";
+}

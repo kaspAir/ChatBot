@@ -39,6 +39,11 @@ $attempts = array_values(array_filter($_SESSION['attempts'] ?? [], fn($time) => 
 if (count($attempts) >= 6) { header('Retry-After: 60'); fail(429, 'Bitte warte eine Minute vor weiteren Fragen.'); }
 $attempts[] = $now;
 $_SESSION['attempts'] = $attempts;
+$knowledgeKey = $config['vector_store_id'] . ':' . $config['knowledge_version'];
+if (($_SESSION['knowledge_key'] ?? '') !== $knowledgeKey) {
+    unset($_SESSION['history']);
+    $_SESSION['knowledge_key'] = $knowledgeKey;
+}
 $payload = hermes_payload($config, $message, $_SESSION['history'] ?? []);
 $started = microtime(true);
 $upstreamId = '';
@@ -77,4 +82,5 @@ if ($answer['grounded']) {
 }
 error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId, 'evidence_present' => $answer['grounded'], 'source_count' => count($answer['sources'])]));
 unset($answer['grounded']);
+$answer['knowledge_version'] = $config['knowledge_version'];
 respond(200, $answer);
