@@ -137,7 +137,7 @@ Vor weiteren Antworttests den Prüfer gezielt testen:
 php tools/check_verifier.php --live
 ```
 
-Dieser Befehl verursacht genau einen API-Aufruf für vier feste Kontrollfälle: unpassender Reporting-Beleg, passende Phasenaufzählung, falsche Negation und korrekt belegte Initialisierung. Die beiden negativen Fälle müssen abgelehnt, die beiden positiven bestätigt werden. Ohne `--live` erfolgt kein API-Aufruf. Die 65 Offline-Tests prüfen technische Regeln und simulierte Prüfurteile; sie testen nicht das Urteilsvermögen des Modells. Die Live-Kontrollfälle sind noch auf dem Hosting auszuführen.
+Dieser Befehl verursacht genau einen API-Aufruf für vier feste Kontrollfälle: unpassender Reporting-Beleg, passende Phasenaufzählung, falsche Negation und korrekt belegte Initialisierung. Die beiden negativen Fälle müssen abgelehnt, die beiden positiven bestätigt werden. Ohne `--live` erfolgt kein API-Aufruf. Die 71 Offline-Tests prüfen technische Regeln und simulierte Prüfurteile; sie testen nicht das Urteilsvermögen des Modells. Die Live-Kontrollfälle sind noch auf dem Hosting auszuführen.
 
 Ein normaler Antworttest benötigt nun bis zu zwei API-Aufrufe (Erzeuger und Prüfer); Latenz und Kosten steigen entsprechend. Die vier Kontrollfälle ersetzen weder die übrigen fachlichen Abnahmefälle noch Lasttests. Handbuch, Suchindex, aktiver Wissensstand und Website-Zuordnung bleiben von diesem Codeupdate unberührt.
 
@@ -149,3 +149,12 @@ Ein normaler Antworttest benötigt nun bis zu zwei API-Aufrufe (Erzeuger und Pr�
 Die anschliessende Inhaltsprüfung bekommt den aufgelösten Originaltext. Eine gültige ID allein beweist keine Aussage. Bedingungen und Ausnahmen müssen weiterhin richtig wiedergegeben werden. Historische Diagnoseausgaben mit freien Zitaten bleiben auswertbar. Der öffentliche File-Search-Suchweg ist durch diese Änderung noch nicht auf lokale Suche umgestellt.
 
 Geprüft: 65 technische Tests und die Zuordnung sämtlicher 198 Belege aus den drei gespeicherten Testläufen zu Auftraggeber, Projektabschluss sowie Release-/Phasenbericht. Das sind Offline-Prüfungen der Zuordnung, keine bestätigten Live-Modellantworten. Für die nächste Prüfung dieselben drei Fragen erneut mit `--local --debug` ausführen; kein Indexneuaufbau oder erneuter Handbuchupload erforderlich. Ein Antworttest benötigt weiterhin bis zu zwei API-Aufrufe.
+
+
+### Tabellenbelege, Bedingungen und Vergleichsfragen
+
+Die lokale Belegauswahl und die Wortlautprüfung sperren nun erkennbare flach extrahierte Zuordnungstabellen (unter anderem Spaltenüberschriften oder dichte Folgen von Listen-, Meilenstein- und Checklistenbezeichnungen). Dies ist eine konservative Heuristik, keine Rekonstruktion des PDF-Layouts. Verlässliche Informationen in solchen Tabellen können dadurch fehlen; ausdrückliche Fliesstextbeschreibungen bleiben nutzbar. Beteiligung an einem Ergebnis darf nicht in gemeinsame Entscheidungskompetenz umgedeutet werden.
+
+Erzeuger und Inhaltsprüfer müssen Bedingungen wie «eventuell vorgesehen», «falls festgelegt» und «je nach» erhalten. Der Erzeuger soll wenige präzise, belegnahe Aussagen liefern statt die Höchstzahl von acht Aussagen auszuschöpfen. Der lokale Suchweg reserviert bei ausdrücklich genannten Kapiteltiteln je einen Treffer, damit Vergleichsfragen nicht allein vom seltensten Suchwort bestimmt werden. Der bestehende Index kann unverändert weiterverwendet werden. Synonyme und komplizierte Vergleichsfragen bleiben fachlich zu prüfen.
+
+Der Live-Kontrollsatz in `tools/check_verifier.php --live` umfasst jetzt acht Fälle in einem API-Aufruf: die bisherigen vier Fälle sowie Beteiligung versus Entscheidungsrecht und bedingte versus unbedingte Releasefreigabe, jeweils mit positivem Gegenbeispiel. Die 71 Offline-Tests prüfen Technik und simulierte Urteile. An der gespeicherten Dreierdiagnose ist zusätzlich geprüft, dass genau der problematische Rollen-Tabellenbeleg unter den zuvor verwendeten Belegen nicht mehr angeboten wird. Neue Live-Antworten sind damit noch nicht fachlich abgenommen.

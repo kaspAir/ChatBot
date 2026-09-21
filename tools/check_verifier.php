@@ -3,13 +3,13 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require __DIR__ . '/../src/verification.php';
 if (!in_array('--live', $argv, true)) {
-    echo "Aufruf: php tools/check_verifier.php --live\nEin kostenpflichtiger API-Aufruf prüft vier feste Kontrollfälle. Keine Antwortneugenerierung.\n";
+    echo "Aufruf: php tools/check_verifier.php --live\nEin kostenpflichtiger API-Aufruf prüft acht feste Kontrollfälle. Keine Antwortneugenerierung.\n";
     exit;
 }
 $config = require __DIR__ . '/../config/config.php';
 if (empty($config['api_key'])) { fwrite(STDERR, "API-Schlüssel fehlt.\n"); exit(1); }
 $cases = require __DIR__ . '/../tests/verification_cases.php';
-$payload = hermes_verification_payload($config, 'Prüfe die folgenden Aussagen zu Phasenberichten jeweils anhand ihres zugeordneten Belegs.', array_column($cases, 'claim'));
+$payload = hermes_verification_payload($config, 'Prüfe die folgenden HERMES-Aussagen jeweils anhand ihres zugeordneten Belegs.', array_column($cases, 'claim'));
 $response = hermes_verifier_request($config, $payload);
 $result = hermes_verification_result($response, count($cases));
 if ($result['diagnostic'] === 'verification_invalid') { fwrite(STDERR, "Prüfdienst fehlgeschlagen oder ungültige Prüfausgabe. Keine Freigabe.\n"); exit(1); }

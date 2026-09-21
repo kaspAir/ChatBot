@@ -49,6 +49,15 @@ function hermes_sections(string $text): array
     return $sections;
 }
 
+/** Konservative Erkennung flach extrahierter Zuordnungstabellen, keine Tabellenrekonstruktion. */
+function hermes_ambiguous_table_quote(string $quote): bool
+{
+    $text = hermes_normalize($quote);
+    if (preg_match('/Beteiligt an der Ergebniserstellung|Modul Aufgabe Ergebnis|Aufgabe Ergebnis Phasen/u', $text)) return true;
+    preg_match_all('/Liste Projektentscheide|Meilenstein|Checkliste|QS- und Risikobericht/u', $text, $markers);
+    return count($markers[0]) >= 3 && !preg_match('/[.!?]\s+\p{Lu}/u', $text);
+}
+
 /** Prüft Belegwortlaut und Kapitelzuordnung, NICHT die logische Folgerung jeder Aussage. */
 function hermes_answer(array $response, array $evidence = []): array
 {
@@ -87,6 +96,7 @@ function hermes_answer(array $response, array $evidence = []): array
         }
         $quote = hermes_normalize($claim['evidence_quote']);
         if (mb_strlen($quote) < 30 || mb_strlen($quote) > 1800) return $reject('invalid_quote_length');
+        if (hermes_ambiguous_table_quote($quote)) return $reject('ambiguous_table_evidence');
         $matched = null;
         foreach ($sections as $section) {
             if ($section['chapter'] === $claim['chapter'] && str_contains(hermes_normalize($section['text']), $quote)) {
@@ -180,6 +190,7 @@ function hermes_evidence_catalog(array $evidence): array
         foreach (hermes_sections($passage['text']) as $section) {
             if (mb_strlen(hermes_normalize($section['text'])) < 30) continue;
             foreach (hermes_quote_options([['text' => $section['text']]]) as $quote) {
+                if (hermes_ambiguous_table_quote($quote)) continue;
                 $id = 'B' . substr(hash('sha256', $section['chapter'] . "\n" . $quote), 0, 20);
                 $catalog[$id] = ['chapter' => $section['chapter'], 'title' => $section['title'], 'evidence_quote' => $quote];
             }

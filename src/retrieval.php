@@ -83,9 +83,15 @@ function hermes_retrieve(array $index, string $question, int $limit = 8): array
         }
         if ($isHeading && ($anchor === null || $df[$term] < $df[$anchor])) $anchor = $term;
     }
+    // Bei Vergleichen jeden ausdrücklich genannten Kapiteltitel berücksichtigen.
+    $explicitChapters = [];
+    foreach ($docs as $doc) {
+        $titleTerms = array_unique(hermes_terms($doc['passage']['title']));
+        if ($titleTerms && !array_diff($titleTerms, $terms)) $explicitChapters[$doc['passage']['chapter']] = true;
+    }
     $average = max(1, $total / count($docs)); $ranked = [];
     foreach ($docs as $doc) {
-        if ($anchor !== null && !isset($doc['freq'][$anchor])) continue;
+        if ($anchor !== null && !isset($doc['freq'][$anchor]) && !isset($explicitChapters[$doc['passage']['chapter']])) continue;
         $score = 0.0;
         foreach ($terms as $term) {
             $tf = $doc['freq'][$term] ?? 0;
@@ -99,7 +105,15 @@ function hermes_retrieve(array $index, string $question, int $limit = 8): array
         if ($score > 0) $ranked[] = $doc['passage'] + ['score' => round($score, 5)];
     }
     usort($ranked, fn($a, $b) => ($b['score'] <=> $a['score']) ?: strcmp($a['id'], $b['id']));
-    return array_slice($ranked, 0, $limit);
+    $selected = []; $seenChapters = [];
+    foreach ($ranked as $passage) {
+        if (isset($explicitChapters[$passage['chapter']]) && !isset($seenChapters[$passage['chapter']])) {
+            $selected[$passage['id']] = $passage;
+            $seenChapters[$passage['chapter']] = true;
+        }
+    }
+    foreach ($ranked as $passage) $selected[$passage['id']] ??= $passage;
+    return array_slice(array_values($selected), 0, $limit);
 }
 
 function hermes_load_index(string $version, array $release): array
