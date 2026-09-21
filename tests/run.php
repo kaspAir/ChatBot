@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../src/retrieval.php';
+require __DIR__ . '/../src/verification.php';
 $count = 0;
 function check(bool $ok, string $label): void {
     global $count;
@@ -97,4 +98,43 @@ check(!hermes_answer(fixture($reportClaim), $reportEvidence)['grounded'], 'Origi
 $emptyRejected = false;
 try { hermes_quote_options([]); } catch (RuntimeException $e) { $emptyRejected = true; }
 check($emptyRejected, 'Leere Zitatauswahl führt nicht zu freier Zitatgenerierung');
+// Prüft die Sperrlogik mit simulierten Urteilen, nicht die Qualität des Prüfmodells.
+function review_fixture(array $checks, bool $answers = true): array {
+    return ['status'=>'completed','output'=>[['type'=>'message','content'=>[['type'=>'output_text','text'=>json_encode(['answers_question'=>$answers,'checks'=>$checks])]]]]];
+}
+$cases = require __DIR__ . '/verification_cases.php';
+$claims = array_column($cases, 'claim');
+$verifierConfig = ['model'=>'test','api_key'=>'unused'];
+$vp = hermes_verification_payload($verifierConfig, 'Welche Phasen?', $claims);
+check(!isset($vp['tools']) && $vp['store'] === false, 'Prüfer hat keine Suche und speichert keine Response');
+$pairs = json_decode($vp['input'][0]['content'], true)['pairs'];
+check(count($pairs) === 4 && $pairs[0]['evidence_quote'] === $claims[0]['evidence_quote'] && !isset($pairs[0]['chapter']), 'Prüfer erhält ausschliesslich konkrete Aussage-Beleg-Paare');
+$checks = [];
+foreach ($cases as $i=>$case) $checks[] = ['claim'=>$i+1,'supported'=>$case['expected'],'reason'=>'Simuliertes fachliches Urteil'];
+check(hermes_verification_result(review_fixture($checks), 4)['diagnostic'] === 'claim_not_supported', 'Ein unbelegter Teil sperrt die Gesamtantwort');
+$one = [['claim'=>1,'supported'=>true,'reason'=>'Der Beleg trägt die Aussage.']];
+check(hermes_verification_result(review_fixture($one), 1)['passed'], 'Vollständige Zustimmung wird erkannt');
+check(!hermes_verification_result(review_fixture($one, false), 1)['passed'], 'Unbeantwortete Teilfrage verhindert Freigabe');
+check(!hermes_verification_result(review_fixture($one), 2)['passed'], 'Fehlendes Einzelurteil verhindert Freigabe');
+check(!hermes_verification_result(review_fixture([$one[0],$one[0]]), 2)['passed'], 'Doppelte Aussage-ID verhindert Freigabe');
+$wrong = $one; $wrong[0]['claim'] = 2;
+check(!hermes_verification_result(review_fixture($wrong), 1)['passed'], 'Fremde Aussage-ID verhindert Freigabe');
+$wrong = $one; $wrong[0]['supported'] = 'true';
+check(!hermes_verification_result(review_fixture($wrong), 1)['passed'], 'Ungültiger Wahrheitswert verhindert Freigabe');
+$incomplete = review_fixture($one); $incomplete['status'] = 'incomplete';
+check(!hermes_verification_result($incomplete, 1)['passed'], 'Abgebrochener Prüflauf verhindert Freigabe');
+$candidate = fixture(['sufficient_evidence'=>true,'claims'=>[$claims[0]]], "7.4.1.6 Reporting\n".$claims[0]['evidence_quote']);
+check(hermes_answer($candidate)['grounded'], 'Reproduktion: thematisch unpassendes Originalzitat besteht Wortlautprüfung');
+$denied = hermes_verified_answer($verifierConfig, 'Welche Phasen?', $candidate, [], fn($payload)=>review_fixture([['claim'=>1,'supported'=>false,'reason'=>'Keine Phasenliste im ausgewählten Zitat.']]));
+check(!$denied['grounded'] && $denied['sources'] === [] && !str_contains($denied['reply'],'Konzept'), 'Ablehnendes Prüfurteil hält Antwort und Quellen zurück');
+$unavailable = hermes_verified_answer($verifierConfig, 'Frage', $candidate, [], fn($payload)=>['status'=>'failed']);
+check(!$unavailable['grounded'], 'Prüfdienstfehler gibt keine ungeprüfte Antwort frei');
+$exception = hermes_verified_answer($verifierConfig, 'Frage', $candidate, [], function($payload){throw new RuntimeException('secret');});
+check(!$exception['grounded'] && !str_contains(json_encode($exception),'secret'), 'Prüfausnahme sperrt ohne interne Fehlermeldung');
+$calls = 0;
+hermes_verified_answer($verifierConfig, 'Frage', fixture(['sufficient_evidence'=>false,'claims'=>[]]), [], function($payload)use(&$calls){$calls++;return [];});
+check($calls === 0, 'Enthaltung verursacht keinen Prüfaufruf');
+$goodCandidate = fixture(['sufficient_evidence'=>true,'claims'=>[$claims[1]]], "7.4.1.6 Reporting\n".$claims[1]['evidence_quote']);
+$approved = hermes_verified_answer($verifierConfig, 'Welche Phasen?', $goodCandidate, [], fn($payload)=>review_fixture($one));
+check($approved['grounded'] && $approved['diagnostic']==='semantic_check_passed', 'Antwort erst nach beiden bestandenen Prüfungen freigegeben');
 echo "$count Prüfungen erfolgreich.\n";
