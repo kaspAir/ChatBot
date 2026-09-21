@@ -77,7 +77,7 @@ function hermes_verified_answer(array $config, string $question, array $response
 {
     $answer = hermes_answer($response, $evidence);
     if (!$answer['grounded']) return $answer; // Bereits beleglos: kein kostenpflichtiger Prüflauf.
-    $claims = hermes_claim_data($response)['claims'];
+    $claims = hermes_expand_evidence_ids(hermes_claim_data($response), $evidence)['claims'];
     $payload = hermes_verification_payload($config, $question, $claims);
     try {
         $review = $request ? $request($payload) : hermes_verifier_request($config, $payload);
