@@ -57,6 +57,15 @@ function hermes_answer(array $response): array
             $sources[] = ['label' => 'Referenzhandbuch – Suchtreffer', 'text' => $excerpt];
         }
     }
+    // Kapitelnummern müssen in einer Überschrift der aktuellen Suchtreffer vorkommen.
+    // Dies prüft ihre Existenz, nicht die inhaltliche Tragfähigkeit der Antwort.
+    $evidence = implode("\n", array_column($sources, 'text'));
+    preg_match_all('/^\h*(\d+(?:\.\d+)+)(?=\s)/m', $evidence, $headings);
+    $basis = explode('Grundlage im Referenzhandbuch', $reply, 2)[1];
+    preg_match_all('/(?<![\d.])(\d+(?:\.\d+)+)(?![\d.])/', $basis, $references);
+    if (($headings[1] && !$references[1]) || array_diff($references[1], $headings[1])) {
+        return ['reply' => 'Die Antwort konnte nicht mit ausreichend nachvollziehbaren Kapitelangaben belegt werden. Bitte formuliere die Frage genauer oder versuche es nochmals.', 'sources' => [], 'grounded' => false];
+    }
     // API-interne Zitationsmarker werden durch die ausklappbaren Suchtreffer ersetzt.
     $reply = trim(preg_replace('/【[^】]*】|filecite[^]*/u', '', $reply) ?? $reply);
     return ['reply' => $reply, 'sources' => $sources, 'grounded' => true];
