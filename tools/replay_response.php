@@ -9,7 +9,11 @@ $text = file_get_contents($path);
 $marker = 'Diagnose: ungefilterte Modellantwort und Suchtreffer';
 $offset = strpos($text, $marker);
 if ($offset !== false) {
-    $start = strpos($text, '[', $offset + strlen($marker));
+    $after = strpos($text, "\n", $offset);
+    $arrayStart = strpos($text, '[', $after);
+    $objectStart = strpos($text, '{', $after);
+    $starts = array_filter([$arrayStart, $objectStart], fn($value) => $value !== false);
+    $start = $starts ? min($starts) : false;
     if ($start === false) { fwrite(STDERR, "Keine Diagnose gefunden.\n"); exit(1); }
     $depth = 0; $quoted = false; $escaped = false;
     for ($end = $start; $end < strlen($text); $end++) {
@@ -31,4 +35,4 @@ $decoded = json_decode($text, true);
 if (!is_array($decoded)) { fwrite(STDERR, "Ungültiges Diagnose-JSON.\n"); exit(1); }
 // Debug-Array enthält nur output; Prüffall simuliert einen abgeschlossenen Response.
 $response = array_is_list($decoded) ? ['status' => 'completed', 'output' => $decoded] : $decoded;
-echo json_encode(['answer' => hermes_answer($response), 'claims' => hermes_diagnose_claims($response)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
+echo json_encode(['answer' => hermes_answer($response, $response['_hermes_evidence'] ?? []), 'claims' => hermes_diagnose_claims($response, $response['_hermes_evidence'] ?? [])], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";

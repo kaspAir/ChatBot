@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/../src/chat.php';
+require __DIR__ . '/../src/retrieval.php';
 $count = 0;
 function check(bool $ok, string $label): void {
     global $count;
@@ -62,4 +62,16 @@ $mixed = $a;
 $mixed['claims'][] = $before['claims'][0];
 $checks = hermes_diagnose_claims(fixture($mixed));
 check(count($checks) === 2 && $checks[0]['diagnostic'] === 'evidence_matched' && $checks[1]['diagnostic'] === 'quote_not_found_in_chapter', 'Einzelfehler sichtbar, ohne gesamte Antwort freizugeben');
+$sample = "4.4.1.30 Phasenbericht\n" . str_repeat("Der Phasenbericht dokumentiert Ergebnisse. ", 5) . "\n7.4.1.6 Reporting\nPhasenbericht\nAm Ende der Phasen Konzept, Realisierung, Einführung und Umsetzung werden die Ergebnisse der Phase aufbereitet.\n" . str_repeat("Weitere Angaben zum Reporting. ", 5);
+$index = hermes_build_index($sample, 'test-v1');
+$hits = hermes_retrieve($index, 'Welche Phasen haben einen Phasenbericht?');
+check(in_array('7.4.1.6', array_column($hits, 'chapter')), 'Reporting über Unterabschnitt gefunden');
+check(in_array('4.4.1.30', array_column($hits, 'chapter')), 'Ergebnisbeschreibung gefunden');
+check($hits === hermes_retrieve($index, 'Welche Phasen haben einen Phasenbericht?'), 'Suche reproduzierbar');
+check(hermes_retrieve($index, 'Quantenverschränkung') === [], 'Unbekannter Suchbegriff ohne Treffer');
+$localEvidence = [['text' => "3.4.1.1 Projektsteuerung\nEs gibt keinen Phasenbericht Initialisierung."]];
+$localResponse = fixture($a); unset($localResponse['output'][0]);
+check(hermes_answer($localResponse, $localEvidence)['grounded'], 'Lokaler Textbeleg ohne erfundenen Tool-Aufruf geprüft');
+$localPayload = hermes_local_payload(['model'=>'test','system_prompt'=>'test','vector_store_id'=>'vs_test'], 'Frage', [], $localEvidence);
+check(!isset($localPayload['tools']) && str_contains($localPayload['instructions'], 'referenzhandbuch_daten'), 'Antwort nutzt vorab ausgewählte Belege');
 echo "$count Prüfungen erfolgreich.\n";
