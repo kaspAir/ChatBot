@@ -126,3 +126,11 @@ body {
     color: var(--muted);
     text-align: center;
 }
+
+.chat { height: 100dvh; }
+.chat__messages { min-height: 0; }
+details { margin-top: 1rem; white-space: normal; }
+summary { cursor: pointer; font-weight: 600; }
+blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid var(--accent); white-space: pre-wrap; font-size: .9rem; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 480px) { .msg__bubble { max-width: 95%; } .chat__header, .chat__form { padding: 12px; } .chat__input { min-width: 0; } }

@@ -13,7 +13,7 @@ declare(strict_types=1);
  */
 
 if (PHP_SAPI !== 'cli') {
-    fwrite(STDERR, "Nur über die Kommandozeile ausführen.\n");
+    http_response_code(404);
     exit(1);
 }
 
@@ -75,6 +75,7 @@ foreach ($files as $path) {
         'file'    => new CURLFile($path),
     ];
     $res = openai_request('POST', 'https://api.openai.com/v1/files', $apiKey, $post);
+    if (empty($res['id'])) { fwrite(STDERR, "Upload ohne Datei-ID.\n"); exit(1); }
     $fileIds[] = $res['id'];
     echo "  -> file_id: {$res['id']}\n";
 }
@@ -88,11 +89,13 @@ $vs = openai_request(
     json_encode(['name' => 'HERMES 2022 Referenzhandbuch', 'file_ids' => $fileIds], JSON_UNESCAPED_UNICODE),
     ['Content-Type: application/json', 'OpenAI-Beta: assistants=v2']
 );
+if (empty($vs['id'])) { fwrite(STDERR, "Vector Store ohne ID.\n"); exit(1); }
 $vsId = $vs['id'];
 echo "  -> vector_store_id: $vsId\n";
 
 // 3) Auf Verarbeitung warten ------------------------------------------------
 echo "Warte auf Indexierung";
+$ready = false;
 for ($i = 0; $i < 60; $i++) {
     $status = openai_request(
         'GET',
@@ -102,12 +105,22 @@ for ($i = 0; $i < 60; $i++) {
         ['OpenAI-Beta: assistants=v2']
     );
     $counts = $status['file_counts'] ?? [];
+    if (($counts['failed'] ?? 0) > 0 || ($counts['cancelled'] ?? 0) > 0 || ($status['status'] ?? '') === 'expired') {
+        fwrite(STDERR, "\nIndexierung fehlgeschlagen. Prüfe Vector Store $vsId; nicht als aktive Quelle konfigurieren.\n");
+        exit(1);
+    }
     if (($counts['in_progress'] ?? 0) === 0 && ($counts['completed'] ?? 0) === count($fileIds)) {
+        $ready = true;
         echo " fertig.\n";
         break;
     }
     echo ".";
     sleep(2);
+}
+
+if (!$ready) {
+    fwrite(STDERR, "\nIndexierung noch nicht abgeschlossen. Prüfe Vector Store $vsId später erneut.\n");
+    exit(1);
 }
 
 echo "\n========================================\n";
