@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/../../src/chat.php';
+require __DIR__ . '/../../src/verification.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -73,7 +73,7 @@ if ($rawResponse === false || $status >= 400 || !is_array($result)) {
     fail($publicStatus, $text);
 }
 if (($result['status'] ?? '') !== 'completed') fail(502, 'Die Antwort wurde nicht vollständig erstellt. Bitte versuche eine kürzere Frage.');
-$answer = hermes_answer($result);
+$answer = hermes_verified_answer($config, $message, $result);
 if ($answer['grounded']) {
     $history = $_SESSION['history'] ?? [];
     $history[] = ['role' => 'user', 'content' => $message];
@@ -81,6 +81,6 @@ if ($answer['grounded']) {
     $_SESSION['history'] = array_slice($history, -6);
 }
 error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId, 'evidence_present' => $answer['grounded'], 'source_count' => count($answer['sources']), 'diagnostic' => $answer['diagnostic'] ?? null]));
-unset($answer['grounded'], $answer['diagnostic']);
+unset($answer['grounded'], $answer['diagnostic'], $answer['verification']);
 $answer['knowledge_version'] = $config['knowledge_version'];
 respond(200, $answer);
