@@ -101,7 +101,7 @@ php tools/test_retrieval.php 2025-10-03-bki-1 'Welche Phasen werden mit einem Ph
 
 Beide Befehle laufen lokal ohne OpenAI-Aufruf. Der Index wird aus der vorhandenen Textdatei erzeugt und anhand ihrer SHA-256-Prüfsumme der bereits hochgeladenen Version zugeordnet. Kein neuer Upload und keine Änderung des aktiven Wissensstands. PHP übernimmt die Aufbereitung; Python wird auf dem Hosting dafür nicht benötigt.
 
-Die Suche gewichtet Wörter, Kapitelüberschriften, übergeordnete Überschriften und alleinstehende Begriffe im Text. Sie ist reproduzierbar, aber keine semantische Suche und kennt keine beliebigen Synonyme. Inhaltsverzeichniszeilen werden ausgefiltert; bei wiederholter Kapitelnummer wird der längste Abschnitt gewählt. Diese Heuristik ist bei neuen Handbuchversionen zu prüfen. Tabellen und Abbildungen werden dadurch nicht rekonstruiert.
+Die Suche gewichtet Wörter, Kapitelüberschriften, übergeordnete Überschriften und alleinstehende Begriffe im Text. Wird in der Frage ein Kapitelthema ausdrücklich genannt, dient der seltenste passende Überschriftenbegriff als Suchanker; Treffer ohne diesen Begriff werden ausgeschlossen. Bei Fragen nach mehreren Themen kann dies die Abdeckung einschränken und muss geprüft werden. Sie ist reproduzierbar, aber keine semantische Suche und kennt keine beliebigen Synonyme. Inhaltsverzeichniszeilen werden ausgefiltert; bei wiederholter Kapitelnummer bleibt die erste ausgeführte Beschreibung erhalten; spätere Registereinträge ersetzen sie nicht. Diese Heuristik ist bei neuen Handbuchversionen zu prüfen. Tabellen und Abbildungen werden dadurch nicht rekonstruiert.
 
 Für den Phasenbericht-Test müssen insbesondere die Ergebnisbeschreibung 4.4.1.30 und der Reporting-Abschnitt 7.4.1.6 mit der Phasenaufzählung enthalten sein. `--full` zeigt den vollständigen ausgewählten Kontext. Auch Projektorganisation und Projektabschluss separat prüfen.
 
@@ -112,3 +112,14 @@ php tools/test_question.php 2025-10-03-bki-1 'Welche Phasen werden mit einem Pha
 ```
 
 Mit `--local` erhält das Modell genau die vorab ausgewählten Abschnitte und führt keine eigene Suche aus. Die bestehende Belegprüfung prüft die Antwort gegen dieselben Abschnitte. Das Kapitel wird bei jedem Abschnitt wiederholt, damit die Quellenzuordnung beim Aufteilen erhalten bleibt. Fehlende lokale Indizes führen zu einem Fehler statt zu einem stillen Wechsel der Suchmethode. Die fachliche Abnahme bleibt offen.
+
+### Suchabnahme mit der vollständigen Handbuchdatei
+
+Nach einem Update auf Indexformat 2 den lokalen Index neu aufbauen (kein erneuter Upload):
+
+```sh
+php tools/build_search_index.php 2025-10-03-bki-1 knowledge/referenzhandbuch.txt
+php tools/check_retrieval.php 2025-10-03-bki-1
+```
+
+Der zweite Befehl prüft die Fundstellen für Phasenbericht, Projektorganisation und Projektabschluss. Beim Phasenbericht muss auch die tatsächliche Phasenaufzählung im gelieferten Kontext vorkommen; eine passende Kapitelnummer allein genügt nicht. Bei einem Fehler endet der Test mit Exitcode 1. Die Erwartungswerte gelten für die vorliegende HERMES-2022-Fassung und sind bei Methodenänderungen fachlich nachzuführen. Diese drei Fälle sind keine vollständige fachliche Abnahme.
