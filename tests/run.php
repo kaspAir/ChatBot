@@ -83,4 +83,18 @@ $rankIndex = hermes_build_index($sample . "\n8.1 Fremdthema\n" . str_repeat("Ini
 $rankHits = hermes_retrieve($rankIndex, 'Welche Phasen werden mit einem Phasenbericht abgeschlossen? Gibt es einen Phasenbericht für die Initialisierung?');
 check(!in_array('8.1', array_column($rankHits, 'chapter')), 'Explizites Kapitelthema verdrängt Treffer nur auf allgemeine Fragewörter');
 check($rankIndex['format'] === 2, 'Neue Indexversion erzwingt Neuaufbau');
+$reportQuote = 'Am Ende der Phasen Konzept, Realisierung, Einführung und Umsetzung werden die Ergebnisse der Phase und die Planung des weiteren Projektverlaufs für den Auftraggeber so aufbereitet, dass er den Entscheid zum weiteren Projektvorgehen (in der Regel zur Phasenfreigabe) treffen kann.';
+$reportEvidence = [['text' => "7.4.1.6 Reporting\n" . $reportQuote]];
+$reportPayload = hermes_local_payload(['model'=>'test','system_prompt'=>'test','vector_store_id'=>'vs_test'], 'Phasenbericht?', [], $reportEvidence);
+$choices = $reportPayload['text']['format']['schema']['properties']['claims']['items']['properties']['evidence_quote']['enum'];
+check(count($choices) > 0 && str_contains($choices[0], $reportQuote), 'Lokales Antwortschema bietet vollständigen Reporting-Beleg an');
+$shortened = str_replace('(in der Regel zur Phasenfreigabe)', '...', $reportQuote);
+check(!in_array($shortened, $choices, true), 'Vom Modell gekürztes Zitat ist keine zulässige Schema-Auswahl');
+$reportClaim = ['sufficient_evidence'=>true, 'claims'=>[['statement'=>'Phasenbericht für die genannten Phasen.', 'chapter'=>'7.4.1.6', 'evidence_quote'=>$choices[0]]]];
+check(hermes_answer(fixture($reportClaim), $reportEvidence)['grounded'], 'Vorgegebener Originalausschnitt besteht weiterhin die Quellenprüfung');
+$reportClaim['claims'][0]['chapter'] = '4.4.1.30';
+check(!hermes_answer(fixture($reportClaim), $reportEvidence)['grounded'], 'Originalausschnitt unter falscher Kapitelnummer bleibt gesperrt');
+$emptyRejected = false;
+try { hermes_quote_options([]); } catch (RuntimeException $e) { $emptyRejected = true; }
+check($emptyRejected, 'Leere Zitatauswahl führt nicht zu freier Zitatgenerierung');
 echo "$count Prüfungen erfolgreich.\n";
