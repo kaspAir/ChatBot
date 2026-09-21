@@ -137,6 +137,15 @@ Vor weiteren Antworttests den Prüfer gezielt testen:
 php tools/check_verifier.php --live
 ```
 
-Dieser Befehl verursacht genau einen API-Aufruf für vier feste Kontrollfälle: unpassender Reporting-Beleg, passende Phasenaufzählung, falsche Negation und korrekt belegte Initialisierung. Die beiden negativen Fälle müssen abgelehnt, die beiden positiven bestätigt werden. Ohne `--live` erfolgt kein API-Aufruf. Die 56 Offline-Tests prüfen technische Regeln und simulierte Prüfurteile; sie testen nicht das Urteilsvermögen des Modells. Die Live-Kontrollfälle sind noch auf dem Hosting auszuführen.
+Dieser Befehl verursacht genau einen API-Aufruf für vier feste Kontrollfälle: unpassender Reporting-Beleg, passende Phasenaufzählung, falsche Negation und korrekt belegte Initialisierung. Die beiden negativen Fälle müssen abgelehnt, die beiden positiven bestätigt werden. Ohne `--live` erfolgt kein API-Aufruf. Die 65 Offline-Tests prüfen technische Regeln und simulierte Prüfurteile; sie testen nicht das Urteilsvermögen des Modells. Die Live-Kontrollfälle sind noch auf dem Hosting auszuführen.
 
 Ein normaler Antworttest benötigt nun bis zu zwei API-Aufrufe (Erzeuger und Prüfer); Latenz und Kosten steigen entsprechend. Die vier Kontrollfälle ersetzen weder die übrigen fachlichen Abnahmefälle noch Lasttests. Handbuch, Suchindex, aktiver Wissensstand und Website-Zuordnung bleiben von diesem Codeupdate unberührt.
+
+
+### Beleg-IDs im lokalen Antwortmodus
+
+`--local` sendet die gefundenen Originalausschnitte jetzt mit kurzen Beleg-IDs direkt im Kontext. Das Modell gibt pro Aussage nur `evidence_id` und `statement` zurück. Kapitelnummer und Zitat werden ausschliesslich auf dem Server aus dem aktuellen Katalog übernommen. Unbekannte IDs, fehlende aktuelle Belege und zusätzliche freie Quellfelder werden abgelehnt. Die ID-Auswahl ersetzt die bisherige lange Liste von Zitattexten im Antwortschema; sie ist für sämtliche lokalen Fragen gleich implementiert.
+
+Die anschliessende Inhaltsprüfung bekommt den aufgelösten Originaltext. Eine gültige ID allein beweist keine Aussage. Bedingungen und Ausnahmen müssen weiterhin richtig wiedergegeben werden. Historische Diagnoseausgaben mit freien Zitaten bleiben auswertbar. Der öffentliche File-Search-Suchweg ist durch diese Änderung noch nicht auf lokale Suche umgestellt.
+
+Geprüft: 65 technische Tests und die Zuordnung sämtlicher 198 Belege aus den drei gespeicherten Testläufen zu Auftraggeber, Projektabschluss sowie Release-/Phasenbericht. Das sind Offline-Prüfungen der Zuordnung, keine bestätigten Live-Modellantworten. Für die nächste Prüfung dieselben drei Fragen erneut mit `--local --debug` ausführen; kein Indexneuaufbau oder erneuter Handbuchupload erforderlich. Ein Antworttest benötigt weiterhin bis zu zwei API-Aufrufe.
