@@ -2,6 +2,7 @@
 declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require __DIR__ . '/../src/retrieval.php';
+require __DIR__ . '/../src/verification.php';
 $config = require __DIR__ . '/../config/config.php';
 $version = $argv[1] ?? '';
 $question = $argv[2] ?? '';
@@ -37,7 +38,9 @@ if ($status !== 200 || !is_array($result)) {
     [$publicStatus, $text] = hermes_error($status, (string) ($result['error']['code'] ?? ''));
     fwrite(STDERR, "$text\n"); exit(1);
 }
-echo json_encode(hermes_answer($result, $evidence), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
+// Nach bestandener Wortlautprüfung folgt ein zusätzlicher API-Aufruf zur Inhaltsprüfung.
+$answer = hermes_verified_answer($config, $question, $result, $evidence);
+echo json_encode($answer, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
 
 if (in_array('--debug', $argv, true)) {
     echo json_encode(hermes_diagnose_claims($result, $evidence), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
