@@ -49,4 +49,17 @@ $p = hermes_payload(['model'=>'test', 'system_prompt'=>'test', 'vector_store_id'
 check(count($p['input']) === 7, 'Kontext begrenzt');
 check($p['tool_choice'] === 'required' && $p['store'] === false, 'Suche erzwungen, keine Response-Speicherung');
 check($p['text']['format']['strict'] === true, 'Strukturiertes Antwortschema angefordert');
+$marked = $a;
+$marked['claims'][0]['evidence_quote'] = '[ERGÄNZUNG KASPAR/BKI: Es gibt keinen Phasenbericht Initialisierung.]';
+$spaced = "3.4.1.1 Projektsteuerung\n[ERGÄNZUNG KASPAR/BKI: Es gibt keinen Phasenbericht Initialisierung. ]";
+check(hermes_answer(fixture($marked, $spaced))['grounded'], 'Leerzeichen vor Markierungsende normalisiert');
+$marked['claims'][0]['evidence_quote'] = '[ERGÄNZUNG KASPAR/BKI: Es gibt einen Phasenbericht Initialisierung.]';
+check(!hermes_answer(fixture($marked, $spaced))['grounded'], 'Veränderte Negation weiterhin gesperrt');
+$before = $a;
+$before['claims'][0]['chapter'] = '1.4.4.1';
+check(!hermes_answer(fixture($before, "Es gibt keinen Phasenbericht Initialisierung.\n1.4.4.1 Abschluss\nAnderer Abschnitt."))['grounded'], 'Text vor Überschrift nicht nachfolgendem Kapitel zugeordnet');
+$mixed = $a;
+$mixed['claims'][] = $before['claims'][0];
+$checks = hermes_diagnose_claims(fixture($mixed));
+check(count($checks) === 2 && $checks[0]['diagnostic'] === 'evidence_matched' && $checks[1]['diagnostic'] === 'quote_not_found_in_chapter', 'Einzelfehler sichtbar, ohne gesamte Antwort freizugeben');
 echo "$count Prüfungen erfolgreich.\n";

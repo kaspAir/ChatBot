@@ -85,3 +85,7 @@ Die grünen fachlichen Texte sind gemäss Betreiber verbindliche Ergänzungen de
 `php tools/test_question.php VERSION 'Frage' --debug` testet einen indexierten Stand ohne Aktivierung. Die Ausgabe enthält einen Diagnosecode und mit `--debug` auch die ungefilterte Modellantwort und Suchtreffer, jedoch keine API-Zugangsdaten. Keine vertraulichen Inhalte öffentlich posten. Jede Ausführung verursacht einen API-Aufruf.
 
 Structured Outputs erzwingt nur die Antwortstruktur; auch passende Zitate können falsch interpretiert werden. Deshalb bleibt die fachliche Abnahme zwingend. Dokumentation: https://developers.openai.com/api/docs/guides/structured-outputs
+
+Vorhandene Debug-Ausgaben lassen sich ohne API-Aufruf erneut prüfen:
+`php tools/replay_response.php knowledge/diagnose.txt`.
+Das Werkzeug akzeptiert gespeicherte `--debug`-Ausgaben oder Response-JSON und zeigt den technischen Befund pro Aussage. Debug-Ausgaben bleiben ausserhalb des öffentlichen Webroots und werden nicht ins Repository übernommen. Bei einem reinen Output-Array simuliert die Wiederholung einen abgeschlossenen Response; sie prüft keine Netzwerk- oder Generierungsfehler. Ein technisch passender Beleg ist weiterhin kein Beweis für eine richtige Schlussfolgerung oder eine vollständige Antwort.

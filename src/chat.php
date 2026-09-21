@@ -29,7 +29,10 @@ function hermes_normalize(string $text): string
 {
     // Ausschliesslich PDF-Trennungen und Leerraum normalisieren; keine Wörter ergänzen.
     $text = preg_replace('/(\p{L})[-\x{00AD}]\h*\R\h*(?=\p{L})/u', '$1', $text) ?? $text;
-    return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+    $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+    // Leerraum unmittelbar vor dem Ende unserer Ergänzungsmarkierung ist bedeutungslos.
+    $text = preg_replace('/(\[ERGÄNZUNG KASPAR\/BKI:[^\]]*?) +\]/u', '$1]', $text) ?? $text;
+    return trim($text);
 }
 
 /** Kapitelabschnitte innerhalb eines Suchtreffers; Nummer und Titel stammen aus dem Text. */
@@ -103,4 +106,29 @@ function hermes_error(int $status, string $code): array
     if ($status === 401 || $status === 403) return [503, 'Die KI-Anbindung ist nicht korrekt freigeschaltet. Bitte informiere den Betreiber.'];
     if ($status === 0) return [504, 'Der KI-Dienst antwortet nicht rechtzeitig. Bitte versuche es später nochmals.'];
     return [502, 'Die Anfrage konnte technisch nicht verarbeitet werden. Bitte informiere den Betreiber mit der Fehlernummer.'];
+}
+
+/** CLI-Diagnose je Aussage ohne weiteren API-Aufruf; keine semantische Bewertung. */
+function hermes_diagnose_claims(array $response): array
+{
+    $raw = '';
+    $searches = [];
+    foreach ($response['output'] ?? [] as $item) {
+        if (($item['type'] ?? '') === 'file_search_call') $searches[] = $item;
+        if (($item['type'] ?? '') !== 'message') continue;
+        foreach ($item['content'] ?? [] as $part) {
+            if (($part['type'] ?? '') === 'output_text') $raw .= $part['text'] ?? '';
+        }
+    }
+    $answer = json_decode($raw, true);
+    $checks = [];
+    foreach ($answer['claims'] ?? [] as $index => $claim) {
+        $single = ['status' => $response['status'] ?? '', 'output' => array_merge($searches, [
+            ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode([
+                'sufficient_evidence' => true, 'claims' => [$claim]])]]]])];
+        $checked = hermes_answer($single);
+        $checks[] = ['claim' => $index + 1, 'chapter' => $claim['chapter'] ?? null,
+            'diagnostic' => $checked['diagnostic']];
+    }
+    return $checks;
 }
