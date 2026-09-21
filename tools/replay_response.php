@@ -35,4 +35,5 @@ $decoded = json_decode($text, true);
 if (!is_array($decoded)) { fwrite(STDERR, "Ungültiges Diagnose-JSON.\n"); exit(1); }
 // Debug-Array enthält nur output; Prüffall simuliert einen abgeschlossenen Response.
 $response = array_is_list($decoded) ? ['status' => 'completed', 'output' => $decoded] : $decoded;
-echo json_encode(['answer' => hermes_answer($response, $response['_hermes_evidence'] ?? []), 'claims' => hermes_diagnose_claims($response, $response['_hermes_evidence'] ?? [])], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
+echo "Nur Wortlaut und Kapitelzuordnung – keine Inhaltsprüfung, keine Antwortfreigabe.\n";
+echo json_encode(['quote_check' => hermes_answer($response, $response['_hermes_evidence'] ?? []), 'claims' => hermes_diagnose_claims($response, $response['_hermes_evidence'] ?? [])], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
