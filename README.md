@@ -82,7 +82,7 @@ Die grünen fachlichen Texte sind gemäss Betreiber verbindliche Ergänzungen de
 
 ### Live-Diagnose
 
-`php tools/test_question.php VERSION 'Frage' --debug` testet einen indexierten Stand ohne Aktivierung. Die Ausgabe enthält einen Diagnosecode und mit `--debug` auch die ungefilterte Modellantwort und Suchtreffer, jedoch keine API-Zugangsdaten. Keine vertraulichen Inhalte öffentlich posten. Jede Ausführung verursacht einen API-Aufruf.
+`php tools/test_question.php VERSION 'Frage' --debug` testet einen indexierten Stand ohne Aktivierung. Die Ausgabe enthält einen Diagnosecode und mit `--debug` auch die ungefilterte Modellantwort und Suchtreffer, jedoch keine API-Zugangsdaten. Keine vertraulichen Inhalte öffentlich posten. Jede Ausführung verursacht einen Generierungsaufruf und bei bestandener Wortlautprüfung einen weiteren API-Aufruf zur Inhaltsprüfung.
 
 Structured Outputs erzwingt nur die Antwortstruktur; auch passende Zitate können falsch interpretiert werden. Deshalb bleibt die fachliche Abnahme zwingend. Dokumentation: https://developers.openai.com/api/docs/guides/structured-outputs
 
@@ -105,7 +105,7 @@ Die Suche gewichtet Wörter, Kapitelüberschriften, übergeordnete Überschrifte
 
 Für den Phasenbericht-Test müssen insbesondere die Ergebnisbeschreibung 4.4.1.30 und der Reporting-Abschnitt 7.4.1.6 mit der Phasenaufzählung enthalten sein. `--full` zeigt den vollständigen ausgewählten Kontext. Auch Projektorganisation und Projektabschluss separat prüfen.
 
-Erst nach Prüfung der Suchtreffer die Antwort daraus testen (dieser Befehl kostet einen API-Aufruf):
+Erst nach Prüfung der Suchtreffer die Antwort daraus testen (dieser Befehl kostet bis zu zwei API-Aufrufe):
 
 ```sh
 php tools/test_question.php 2025-10-03-bki-1 'Welche Phasen werden mit einem Phasenbericht abgeschlossen? Gibt es einen Phasenbericht für die Initialisierung?' --local --debug
@@ -123,3 +123,20 @@ php tools/check_retrieval.php 2025-10-03-bki-1
 ```
 
 Der zweite Befehl prüft die Fundstellen für Phasenbericht, Projektorganisation und Projektabschluss. Beim Phasenbericht muss auch die tatsächliche Phasenaufzählung im gelieferten Kontext vorkommen; eine passende Kapitelnummer allein genügt nicht. Bei einem Fehler endet der Test mit Exitcode 1. Die Erwartungswerte gelten für die vorliegende HERMES-2022-Fassung und sind bei Methodenänderungen fachlich nachzuführen. Diese drei Fälle sind keine vollständige fachliche Abnahme.
+
+
+### Zusätzliche Inhaltsprüfung vor der Antwortausgabe
+
+CLI-Antworttests und der Web-Endpunkt prüfen nach dem Wortlautabgleich jede Aussage in einem separaten Modellaufruf gegen genau ihr ausgewähltes Zitat. Der Prüfer hat keine Suchwerkzeuge und erhält keine übrigen Kapiteltexte. Er darf andere Aussage-Beleg-Paare nicht als Ersatzbelege verwenden. Eine fehlende, doppelte, unvollständige oder negative Bewertung verhindert die Ausgabe der gesamten Antwort und die Übernahme in den Gesprächsverlauf. Auch ein technischer Prüffehler führt zur Sperre; es gibt keine automatische Wiederholung oder Neugenerierung.
+
+Der Prüfer nutzt das konfigurierte Modell, aber einen separaten Aufruf. Das ist keine unabhängige fachliche Zertifizierung: Beide Modellaufrufe können dieselben Fehler machen. `semantic_check_passed` bedeutet nur, dass der Modellprüfer zugestimmt hat. Die reine Funktion `hermes_answer` und `replay_response.php` prüfen weiterhin ausschliesslich Wortlaut und Kapitelzuordnung; deren `grounded` ist keine semantische Freigabe. Die Antwortausgabe verwendet `hermes_verified_answer`.
+
+Vor weiteren Antworttests den Prüfer gezielt testen:
+
+```sh
+php tools/check_verifier.php --live
+```
+
+Dieser Befehl verursacht genau einen API-Aufruf für vier feste Kontrollfälle: unpassender Reporting-Beleg, passende Phasenaufzählung, falsche Negation und korrekt belegte Initialisierung. Die beiden negativen Fälle müssen abgelehnt, die beiden positiven bestätigt werden. Ohne `--live` erfolgt kein API-Aufruf. Die 56 Offline-Tests prüfen technische Regeln und simulierte Prüfurteile; sie testen nicht das Urteilsvermögen des Modells. Die Live-Kontrollfälle sind noch auf dem Hosting auszuführen.
+
+Ein normaler Antworttest benötigt nun bis zu zwei API-Aufrufe (Erzeuger und Prüfer); Latenz und Kosten steigen entsprechend. Die vier Kontrollfälle ersetzen weder die übrigen fachlichen Abnahmefälle noch Lasttests. Handbuch, Suchindex, aktiver Wissensstand und Website-Zuordnung bleiben von diesem Codeupdate unberührt.
