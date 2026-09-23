@@ -195,3 +195,13 @@ Die Website und tools/test_question.php ohne --local verwenden src/conversation.
 Die Oberfläche zeigt bis zu acht unveränderte, deduplizierte Suchausschnitte als «Gefundene Handbuchstellen». Diese sind keine Bestätigung jedes Satzes und werden nicht als einzeln geprüfte Zitate ausgegeben. Kapitel nennt das Modell nur, wenn sie aus der Suche hervorgehen. Unvollständige API-Antworten und fehlgeschlagene Suche werden weiterhin abgefangen. Ein Gesprächsschritt verwendet einen Responses-Aufruf mit File Search; Suchwerkzeuge können innerhalb dieses Aufrufs mehrfach ausgeführt werden und verursachen Kosten.
 
 Der aktive Wissensstand, API-Schlüssel und Hostingpfad bleiben erhalten. Nach git pull --ff-only auf dem Hosting eine neue Unterhaltung beginnen. Insbesondere Phasenberichte, Auftraggeber, Projektabschluss, eine Anschlussfrage und eine fachfremde Frage direkt auf der Website prüfen. Der Abnahmekatalog bleibt massgeblich für die fachliche Qualität; Quellen sind jetzt auf Antwortebene zu prüfen, nicht durch erzwungene Einzelbehauptungen.
+
+
+
+### Aufklappbares HERMAESTRO-Widget
+
+Die Startseite zeigt unten rechts das originale HERMAESTRO-SVG von https://www.bki.ch/assets/chat/hermaestro.svg (übernommen am 23.09.2026). Wortmarke, Formen und Farben bleiben erhalten. Für den Launcher sind lediglich die vorhandenen Flügel und Pupillen gruppiert und per CSS animiert. Die Bewegung endet nach 4,8 Sekunden; Mausberührung oder Tastaturfokus startet sie erneut. Bei prefers-reduced-motion bleibt das Logo ruhig. Die separate SVG-Datei dient als unverändertes Logo im Kopfbereich.
+
+Klick öffnet oder schliesst den Chat. Schliessen und Escape bewahren Verlauf und laufende Anfrage; «Neuer Chat» setzt den Verlauf wie bisher serverseitig zurück. Eine Antwort im geschlossenen Fenster öffnet es nicht und stiehlt keinen Fokus. ?chatActive=1 öffnet das Fenster beim Seitenaufruf ohne API-Anfrage. Ohne Parameter startet es geschlossen. Mobile Geräte erhalten ein an die Bildschirmhöhe angepasstes Fenster.
+
+Der Hintergrund ist eine Demo-Seite, kein Nachbau der BKI-Website. Für den Einbau kann der Website-Entwickler Launcher und Chatbereich samt zugehörigen Assets übernehmen; die API-Adresse muss zur vereinbarten Backend-Einbindung passen. Eine fremde Website kann den Endpunkt nicht einfach per Cross-Site-Fetch verwenden, da der vorhandene Herkunftsschutz bestehen bleibt. Das Widget ist auf chatbot.hermespia.ch nach git pull und Neuladen mit Strg+F5 verfügbar.

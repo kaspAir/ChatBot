@@ -7,6 +7,38 @@
     const messages = document.getElementById('messages');
     const welcome = document.getElementById('welcome');
     const suggestions = document.querySelectorAll('[data-question]');
+    const panel = document.getElementById('chatPanel');
+    const launcher = document.getElementById('chatLauncher');
+    const closeChat = document.getElementById('closeChat');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let animationTimer;
+    function greet() {
+        if (reducedMotion.matches || launcher.classList.contains('is-animated')) return;
+        launcher.classList.add('is-animated');
+        clearTimeout(animationTimer);
+        animationTimer = setTimeout(() => launcher.classList.remove('is-animated'), 4800);
+    }
+    function setOpen(open, focus = true) {
+        panel.hidden = !open;
+        launcher.setAttribute('aria-expanded', String(open));
+        launcher.setAttribute('aria-label', open ? 'HERMAESTRO Chat schliessen' : 'HERMAESTRO Chat öffnen');
+        launcher.querySelector('.chat-launcher__label').textContent = open ? 'Chat schliessen' : 'Frag HERMAESTRO';
+        document.body.classList.toggle('chat-is-open', open);
+        if (focus) {
+            if (open) (input.disabled ? closeChat : input).focus();
+            else launcher.focus();
+        }
+    }
+    launcher.addEventListener('click', () => setOpen(panel.hidden));
+    launcher.addEventListener('pointerenter', greet);
+    launcher.addEventListener('focus', greet);
+    closeChat.addEventListener('click', () => setOpen(false));
+    panel.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
+    });
+    // Entspricht dem Direktlink auf der BKI-Seite; kein automatischer API-Aufruf.
+    if (new URLSearchParams(window.location.search).get('chatActive') === '1') setOpen(true, false);
+    else greet();
     let busy = false;
 
     function addMessage(text, who, sources = [], version = null, sourceMode = null) {
@@ -46,7 +78,7 @@
         sendBtn.disabled = input.disabled = resetBtn.disabled = value;
         form.setAttribute('aria-busy', String(value));
         suggestions.forEach(button => { button.disabled = value; });
-        if (!value) input.focus();
+        if (!value && !panel.hidden) input.focus();
     }
     async function request(body) {
         const controller = new AbortController();
@@ -124,4 +156,5 @@
         finally { setBusy(false); }
     });
 })();
+
 
