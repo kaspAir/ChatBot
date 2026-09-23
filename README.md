@@ -158,3 +158,29 @@ Die lokale Belegauswahl und die Wortlautprüfung sperren nun erkennbare flach ex
 Erzeuger und Inhaltsprüfer müssen Bedingungen wie «eventuell vorgesehen», «falls festgelegt» und «je nach» erhalten. Der Erzeuger soll wenige präzise, belegnahe Aussagen liefern statt die Höchstzahl von acht Aussagen auszuschöpfen. Der lokale Suchweg reserviert bei ausdrücklich genannten Kapiteltiteln je einen Treffer, damit Vergleichsfragen nicht allein vom seltensten Suchwort bestimmt werden. Der bestehende Index kann unverändert weiterverwendet werden. Synonyme und komplizierte Vergleichsfragen bleiben fachlich zu prüfen.
 
 Der Live-Kontrollsatz in `tools/check_verifier.php --live` umfasst jetzt acht Fälle in einem API-Aufruf: die bisherigen vier Fälle sowie Beteiligung versus Entscheidungsrecht und bedingte versus unbedingte Releasefreigabe, jeweils mit positivem Gegenbeispiel. Die 71 Offline-Tests prüfen Technik und simulierte Urteile. An der gespeicherten Dreierdiagnose ist zusätzlich geprüft, dass genau der problematische Rollen-Tabellenbeleg unter den zuvor verwendeten Belegen nicht mehr angeboten wird. Neue Live-Antworten sind damit noch nicht fachlich abgenommen.
+
+
+
+### Demo-Stand: Bedienung und Themenbegrenzung (23.09.2026)
+
+Die Website zeigt einen Einstieg mit drei Beispielfragen, eine mobile Gesprächsansicht und nummerierte aufklappbare Textbelege. Der sichtbare Demo-Hinweis bleibt bis zur fachlichen Freigabe bestehen. Nach einem erfolgreichen Chat-Reset erscheint wieder der Einstieg.
+
+Erzeuger und lokale CLI verwenden im strukturierten Antwortschema zusätzlich `response_type`. Fachfremde Fragen erhalten `out_of_scope` und einen festen serverseitigen Hinweis. `clarification` und `greeting` liefern ebenfalls feste Texte ohne erfundene Quellen. Bei `mixed` darf nur der HERMES-Teil beantwortet werden; nach erfolgreicher Beleg- und Inhaltsprüfung ergänzt der Server die Ablehnung des fachfremden Teils. Die Einordnung erfolgt durch das Modell und ist deshalb mit den tatsächlichen Fragen aus dem Abnahmekatalog zu prüfen. Die neue Struktur ersetzt keine fachliche Abnahme. Historische Antwortprotokolle ohne dieses Feld bleiben auswertbar.
+
+Die Website wartet bis zu 150 Sekunden, damit die beiden serverseitigen API-Zeitlimits (75 und 60 Sekunden) nicht bereits nach 90 Sekunden vom Browser abgebrochen werden. Hosting- und Proxy-Zeitlimits müssen dazu passen. Es gibt keine automatische Wiederholung kostenpflichtiger Anfragen. Die Suche bleibt im Website-Bot bei File Search; lokale CLI-Tests sind weiterhin ein separater Suchweg.
+
+Für die erste Demo auf dem bestehenden Hosting:
+
+```sh
+cd ~/hermes-chatbot-v2 && git pull --ff-only && php tests/run.php
+```
+
+Danach die bisher eingerichtete Chat-Website neu laden und direkt dort prüfen:
+
+1. Eine Beispielfrage anklicken und Antwort samt Quellen lesen.
+2. «Erkläre es einfacher» als Anschlussfrage stellen.
+3. «Was ist die Hauptstadt von Frankreich?» eingeben: erwartet wird ausschliesslich die Ablehnung.
+4. «Wer muss das genehmigen?» in einem neuen Chat eingeben: erwartet wird eine Rückfrage.
+5. «Neue Unterhaltung» prüfen und eine weitere Fachfrage stellen.
+
+Live-Fragen verursachen API-Kosten. Ohne verfügbaren API-Schlüssel und aktive Handbuchanbindung lässt sich die fachliche Demo hier nicht vorwegnehmen. Der Entwickler erhält die vorhandene PHP-Anwendung mit `public/` als Webroot; API-Schlüssel, Handbuch und Wissenskonfiguration verbleiben ausserhalb dieses Verzeichnisses. Die vollständige fachliche Prüfung und die Übergabekriterien stehen in [tests/acceptance.md](tests/acceptance.md).

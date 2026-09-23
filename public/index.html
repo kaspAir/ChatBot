@@ -4,28 +4,31 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>HERMES 2022 – Chatbot</title>
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/style.css?v=20260923">
 </head>
 <body>
-    <div class="chat">
+    <main class="chat">
         <header class="chat__header">
-            <h1>HERMES 2022 – Chatbot</h1>
+            <div><p class="chat__eyebrow">BKI · Methodenassistent</p><h1>HERMES 2022</h1></div>
             <button id="resetBtn" class="chat__reset" type="button">Neue Unterhaltung</button>
         </header>
 
-        <div id="messages" class="chat__messages" aria-live="polite">
-            <div class="msg msg--bot">
-                <div class="msg__bubble">
-                    Stell mir deine Frage zur Projektmanagement-Methode HERMES 2022.
-                    Ich antworte ausschliesslich auf Basis des Referenzhandbuchs und
-                    zeige dir die gefundenen Quellen. Falls die Grundlage nicht ausreicht, sage ich das.
-                </div>
+        <section id="welcome" class="chat__welcome" aria-label="Einstieg">
+            <span class="chat__badge">Demo · Fachliche Abnahme offen</span>
+            <h2>Deine Frage. Orientierung für dein Projekt.</h2>
+            <p>Ich helfe dir bei HERMES 2022 – von Rollen und Aufgaben bis zu Ergebnissen und Phasen. Die passenden Textbelege kannst du direkt in der Antwort öffnen.</p>
+            <div class="chat__suggestions">
+                <button type="button" data-question="Was sind die wichtigsten Aufgaben des Auftraggebers?">Aufgaben des Auftraggebers <span aria-hidden="true">↗</span></button>
+                <button type="button" data-question="Was müssen wir für den Projektabschluss erledigen?">Projektabschluss vorbereiten <span aria-hidden="true">↗</span></button>
+                <button type="button" data-question="Was ist der Unterschied zwischen Releasebericht und Phasenbericht?">Release- und Phasenbericht <span aria-hidden="true">↗</span></button>
             </div>
-        </div>
+            <p class="chat__scope">Ausschliesslich HERMES-Fragen. Andere Themen kann ich nicht beantworten.</p>
+        </section>
+        <div id="messages" class="chat__messages" role="log" aria-label="Gespräch" aria-live="polite" aria-relevant="additions"></div>
 
         <form id="chatForm" class="chat__form">
             <textarea id="input" class="chat__input" rows="1"
-                      placeholder="Frage eingeben … (Enter sendet, Shift+Enter = neue Zeile)"
+                      placeholder="Deine HERMES-Frage …"
                       autocomplete="off" maxlength="4000" aria-label="Deine Frage zu HERMES 2022"></textarea>
             <button id="sendBtn" class="chat__send" type="submit">Senden</button>
         </form>
@@ -34,8 +37,9 @@
             Dieser Chatbot ist eine künstliche Intelligenz und kann Fehler machen.
             Bitte überprüfe wichtige Antworten anhand des Referenzhandbuchs.
         </p>
-    </div>
+    </main>
 
-    <script src="assets/chat.js"></script>
+    <script src="assets/chat.js?v=20260923"></script>
 </body>
 </html>
+

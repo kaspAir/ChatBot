@@ -5,9 +5,11 @@
     const sendBtn = document.getElementById('sendBtn');
     const resetBtn = document.getElementById('resetBtn');
     const messages = document.getElementById('messages');
+    const welcome = document.getElementById('welcome');
+    const suggestions = document.querySelectorAll('[data-question]');
     let busy = false;
 
-    function addMessage(text, who, sources = []) {
+    function addMessage(text, who, sources = [], version = null) {
         const wrap = document.createElement('div');
         wrap.className = 'msg msg--' + who;
         const bubble = document.createElement('div');
@@ -21,12 +23,18 @@
             const note = document.createElement('p');
             note.textContent = 'Diese Textbelege wurden im angegebenen Kapitel gefunden. Die Nummern ordnen sie den Aussagen zu. Prüfe, ob die Schlussfolgerungen stimmen.';
             details.appendChild(note);
-            sources.forEach((source) => {
+            sources.forEach((source, index) => {
                 const quote = document.createElement('blockquote');
-                quote.textContent = source.text;
+                quote.textContent = '[' + (index + 1) + '] ' + source.text;
                 details.appendChild(quote);
             });
             bubble.appendChild(details);
+        }
+        if (version) {
+            const meta = document.createElement('small');
+            meta.className = 'msg__meta';
+            meta.textContent = 'Wissensstand: ' + version;
+            bubble.appendChild(meta);
         }
         wrap.appendChild(bubble);
         messages.appendChild(wrap);
@@ -37,11 +45,12 @@
         busy = value;
         sendBtn.disabled = input.disabled = resetBtn.disabled = value;
         form.setAttribute('aria-busy', String(value));
+        suggestions.forEach(button => { button.disabled = value; });
         if (!value) input.focus();
     }
     async function request(body) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 90000);
+        const timer = setTimeout(() => controller.abort(), 150000);
         try {
             const res = await fetch('api/chat.php', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -75,23 +84,32 @@
         event.preventDefault();
         const message = input.value.trim();
         if (busy || !message) return;
+        welcome.hidden = true;
         addMessage(message, 'user');
         input.value = '';
         input.style.height = 'auto';
         setBusy(true);
-        const waiting = addMessage('Ich suche im Referenzhandbuch …', 'bot');
+        const waiting = addMessage('Ich bearbeite deine Frage …', 'bot');
+        waiting.classList.add('is-typing');
+        const progress = setTimeout(() => { waiting.querySelector('.msg__bubble').textContent = 'Die Antwort wird noch bearbeitet. Fachliche Antworten werden zusätzlich anhand ihrer Belege geprüft.'; }, 12000);
         try {
             const data = await request({message});
             if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('Der Server hat keine Antwort geliefert.');
-            addMessage(data.reply + (data.knowledge_version ? '\n\nWissensstand: ' + data.knowledge_version : ''), 'bot', Array.isArray(data.sources) ? data.sources : []);
+            addMessage(data.reply, 'bot', Array.isArray(data.sources) ? data.sources : [], data.knowledge_version);
         } catch (error) {
             addMessage(errorText(error), 'bot');
             input.value = message;
         } finally {
+            clearTimeout(progress);
             waiting.remove();
             setBusy(false);
         }
     });
+    suggestions.forEach(button => button.addEventListener('click', () => {
+        if (busy) return;
+        input.value = button.dataset.question;
+        form.requestSubmit();
+    }));
     resetBtn.addEventListener('click', async () => {
         if (busy) return;
         setBusy(true);
@@ -100,8 +118,10 @@
             if (data.ok !== true) throw new Error('Die Unterhaltung konnte nicht zurückgesetzt werden.');
             messages.replaceChildren();
             input.value = '';
-            addMessage('Neue Unterhaltung gestartet. Stell mir deine Frage zu HERMES 2022.', 'bot');
+            input.style.height = 'auto';
+            welcome.hidden = false;
         } catch (error) { addMessage(errorText(error), 'bot'); }
         finally { setBusy(false); }
     });
 })();
+

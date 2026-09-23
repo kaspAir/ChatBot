@@ -173,4 +173,24 @@ $comparisonIndex = hermes_build_index($comparisonText,'compare-v1');
 $comparisonHits = hermes_retrieve($comparisonIndex,'Wie unterscheiden sich Releasebericht und Phasenbericht?',2);
 check(count(array_intersect(['4.4.1.30','4.4.1.45'],array_column($comparisonHits,'chapter')))===2,'Vergleich liefert beide explizit genannten Ergebnisbeschreibungen');
 check(hermes_retrieve($comparisonIndex,'Quantenverschränkung')===[],'Vergleichserweiterung erfindet keine unbekannten Treffer');
+// Nichtfachliche Antworten sind serverseitige Texte, keine frei generierten Aussagen.
+foreach (['out_of_scope', 'clarification', 'greeting', 'insufficient'] as $type) {
+    $nonAnswer = fixture(['response_type'=>$type, 'sufficient_evidence'=>false, 'claims'=>[]]);
+    $calls = 0;
+    $result = hermes_verified_answer($verifierConfig, 'Frage', $nonAnswer, [], function($payload)use(&$calls){$calls++;return [];});
+    check(!$result['grounded'] && $result['sources'] === [] && $calls === 0, "Hinweis $type ohne Fachbehauptung oder Prüfaufruf");
+    if ($type === 'out_of_scope') check($result['reply'] === HERMES_OUT_OF_SCOPE, 'Fachfremde Frage hat eigenen festen Hinweis');
+    $contradiction = ['response_type'=>$type, 'sufficient_evidence'=>false, 'claims'=>$a['claims']];
+    check(hermes_answer(fixture($contradiction))['diagnostic']==='inconsistent_response_type', 'Fachbehauptung im Hinweismodus gesperrt');
+}
+$unknownType = ['response_type'=>'free_text','sufficient_evidence'=>false,'claims'=>[]];
+check(hermes_answer(fixture($unknownType))['diagnostic']==='invalid_response_type','Unbekannte Antwortart gesperrt');
+$mixedAnswer = ['response_type'=>'mixed','sufficient_evidence'=>true,'claims'=>[$claims[1]]];
+$mixedResponse = fixture($mixedAnswer, "7.4.1.6 Reporting\n".$claims[1]['evidence_quote']);
+$mixedResult = hermes_verified_answer($verifierConfig,'HERMES und Rezept',$mixedResponse,[],fn($payload)=>review_fixture($one));
+check($mixedResult['grounded'] && str_contains($mixedResult['reply'],'ausserhalb von HERMES'), 'Gemischte Anfrage: belegter Fachteil und feste Ablehnung');
+$badMixed = hermes_verified_answer($verifierConfig,'HERMES und Rezept',$mixedResponse,[],fn($payload)=>['status'=>'failed']);
+check(!$badMixed['grounded'] && $badMixed['sources']===[], 'Gemischte Anfrage umgeht keine Inhaltsprüfung');
+check(in_array('response_type',$p['text']['format']['schema']['required'],true),'Antwortart im API-Schema erforderlich');
 echo "$count Prüfungen erfolgreich.\n";
+

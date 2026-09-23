@@ -74,7 +74,7 @@ if ($rawResponse === false || $status >= 400 || !is_array($result)) {
 }
 if (($result['status'] ?? '') !== 'completed') fail(502, 'Die Antwort wurde nicht vollständig erstellt. Bitte versuche eine kürzere Frage.');
 $answer = hermes_verified_answer($config, $message, $result);
-if ($answer['grounded']) {
+if ($answer['grounded'] || in_array($answer['diagnostic'] ?? '', ['clarification', 'greeting'], true)) {
     $history = $_SESSION['history'] ?? [];
     $history[] = ['role' => 'user', 'content' => $message];
     $history[] = ['role' => 'assistant', 'content' => $answer['reply']];
@@ -84,3 +84,4 @@ error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId,
 unset($answer['grounded'], $answer['diagnostic'], $answer['verification']);
 $answer['knowledge_version'] = $config['knowledge_version'];
 respond(200, $answer);
+
