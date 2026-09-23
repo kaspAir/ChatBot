@@ -12,8 +12,29 @@ $cases = [
     'fachfremd' => ['question'=>'Was ist die Hauptstadt von Frankreich?'],
 ];
 $models = ['gpt-4o', 'gpt-4.1', 'gpt-5.4'];
+
+$pause = 0;
+foreach (array_slice($argv, 1) as $arg) {
+    if (str_starts_with($arg, '--models=')) {
+        $selected = array_values(array_unique(explode(',', substr($arg, 9))));
+        if (!$selected || array_diff($selected, ['gpt-4o','gpt-4.1','gpt-5.4'])) {
+            fwrite(STDERR, "Zulässige Modelle: gpt-4o,gpt-4.1,gpt-5.4\n"); exit(1);
+        }
+        $models = $selected;
+    } elseif (str_starts_with($arg, '--pause=')) {
+        $value = substr($arg, 8);
+        if (!ctype_digit($value) || (int) $value > 60) {
+            fwrite(STDERR, "--pause erwartet 0 bis 60 Sekunden.\n"); exit(1);
+        }
+        $pause = (int) $value;
+    } elseif ($arg !== '--live') {
+        fwrite(STDERR, "Unbekannte Option: erlaubt sind --live, --models=... und --pause=0..60.\n"); exit(1);
+    }
+}
+
 echo "Modellvergleich: " . implode(', ', $models) . "\n";
-echo "Sechs Fälle je Modell, maximal 18 kostenpflichtige Responses-Aufrufe mit File Search. Keine Wiederholungen.\n";
+echo "Sechs Fälle je Modell, maximal " . (6 * count($models)) . " kostenpflichtige Responses-Aufrufe mit File Search. Keine Wiederholungen.\n";
+echo "Pause zwischen Anfragen: $pause Sekunden.\n";
 echo "Gleicher Website-Payload, 4000 Ausgabetokens, 75 Sekunden Timeout; Standard-Reasoning des jeweiligen Modells.\n";
 echo "Gleiches Handbuch und Suchverfahren; die tatsächlich abgerufenen Textstellen können variieren.\n";
 echo "Ein Durchlauf ist eine erste Stichprobe, keine statistische Rangliste. Website-Konfiguration bleibt unverändert.\n";
@@ -36,7 +57,7 @@ $report = [
     'prompt_sha256'=>hash('sha256', $config['conversation_prompt']),
     'conversation_code_sha256'=>hash_file('sha256', __DIR__ . '/../src/conversation.php'),
     'search_store_sha256'=>hash('sha256', $config['vector_store_id']),
-    'models'=>$models, 'timeout_seconds'=>75, 'max_output_tokens'=>4000,
+    'models'=>$models, 'pause_seconds'=>$pause, 'timeout_seconds'=>75, 'max_output_tokens'=>4000,
     'reasoning'=>'API defaults', 'repetitions'=>1, 'results'=>[],
 ];
 $save = static function () use (&$report, $file): void {
@@ -47,6 +68,7 @@ $save = static function () use (&$report, $file): void {
 $save();
 echo "Ergebnisdatei: $file\n";
 $stopAll = false;
+$hasRequested = false;
 foreach ($models as $model) {
     $history = [];
     foreach ($cases as $id=>$case) {
@@ -54,6 +76,8 @@ foreach ($models as $model) {
             $report['results'][] = ['model'=>$model, 'case'=>$id, 'status'=>'skipped', 'reason'=>'Vorherige Antwort technisch fehlgeschlagen.'];
             $save(); continue;
         }
+        if ($hasRequested && $pause > 0) { echo "Pause: $pause Sekunden ...\n"; flush(); sleep($pause); }
+        $hasRequested = true;
         $question = $case['question'];
         $modelConfig = $config; $modelConfig['model'] = $model;
         $payload = hermes_conversation_payload($modelConfig, $question, isset($case['after']) ? $history : []);
