@@ -41,7 +41,7 @@
     else greet();
     let busy = false;
 
-    function addMessage(text, who, sources = [], version = null, sourceMode = null) {
+    function addMessage(text, who, sources = [], sourceMode = null) {
         const wrap = document.createElement('div');
         wrap.className = 'msg msg--' + who;
         const bubble = document.createElement('div');
@@ -61,12 +61,6 @@
                 details.appendChild(quote);
             });
             bubble.appendChild(details);
-        }
-        if (version) {
-            const meta = document.createElement('small');
-            meta.className = 'msg__meta';
-            meta.textContent = 'Wissensstand: ' + version;
-            bubble.appendChild(meta);
         }
         wrap.appendChild(bubble);
         messages.appendChild(wrap);
@@ -127,7 +121,7 @@
         try {
             const data = await request({message});
             if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('Der Server hat keine Antwort geliefert.');
-            addMessage(data.reply, 'bot', Array.isArray(data.sources) ? data.sources : [], data.knowledge_version, data.source_mode);
+            addMessage(data.reply, 'bot', Array.isArray(data.sources) ? data.sources : [], data.source_mode);
         } catch (error) {
             addMessage(errorText(error), 'bot');
             input.value = message;
