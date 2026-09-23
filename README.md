@@ -1,5 +1,7 @@
 # HERMES 2022 – Assistent mit Referenzhandbuch
 
+> Aktueller Website-Modus: natürliche Antworten aus der Handbuchsuche. Die unten dokumentierten Einzelbehauptungs- und Verifier-Prüfungen gelten nur noch für den experimentellen lokalen Modus, nicht für den Website-Dialog. Siehe Abschnitt «Vereinfachter Website-Dialog» am Ende.
+
 PHP-Anwendung für Infomaniak (PHP 8.4, cURL, mbstring). Der Browser spricht ausschliesslich mit dem eigenen Server; dieser verwendet die OpenAI Responses API mit File Search. Das Handbuch wird einmal in einen OpenAI Vector Store geladen. Es wird nicht bei jeder Frage vollständig übertragen.
 
 **Stand: technische Arbeitsfassung.** Vor einer Veröffentlichung sind echte Tests mit der freigegebenen Handbuchversion erforderlich. Im Repository befinden sich weder das Handbuch noch Zugangsdaten. Die technische Quellenprüfung kontrolliert Belegwortlaut und Kapitelzuordnung, garantiert aber keine inhaltliche Richtigkeit der Schlussfolgerungen.
@@ -184,3 +186,12 @@ Danach die bisher eingerichtete Chat-Website neu laden und direkt dort prüfen:
 5. «Neue Unterhaltung» prüfen und eine weitere Fachfrage stellen.
 
 Live-Fragen verursachen API-Kosten. Ohne verfügbaren API-Schlüssel und aktive Handbuchanbindung lässt sich die fachliche Demo hier nicht vorwegnehmen. Der Entwickler erhält die vorhandene PHP-Anwendung mit `public/` als Webroot; API-Schlüssel, Handbuch und Wissenskonfiguration verbleiben ausserhalb dieses Verzeichnisses. Die vollständige fachliche Prüfung und die Übergabekriterien stehen in [tests/acceptance.md](tests/acceptance.md).
+
+
+### Vereinfachter Website-Dialog
+
+Die Website und tools/test_question.php ohne --local verwenden src/conversation.php und config/conversation_prompt.txt. Der Bot durchsucht das gesamte aktive Referenzhandbuch, verbindet Abschnitte und antwortet in natürlicher Sprache. Keine feste Kapitelstruktur, kein wörtliches Zitat pro Satz und kein zweiter Verifier-Aufruf blockieren den normalen Dialog. Fachfremde Fragen sollen weiterhin abgelehnt werden. Diese Abgrenzung und die fachliche Qualität sind Modellverhalten und müssen live geprüft werden.
+
+Die Oberfläche zeigt bis zu acht unveränderte, deduplizierte Suchausschnitte als «Gefundene Handbuchstellen». Diese sind keine Bestätigung jedes Satzes und werden nicht als einzeln geprüfte Zitate ausgegeben. Kapitel nennt das Modell nur, wenn sie aus der Suche hervorgehen. Unvollständige API-Antworten und fehlgeschlagene Suche werden weiterhin abgefangen. Ein Gesprächsschritt verwendet einen Responses-Aufruf mit File Search; Suchwerkzeuge können innerhalb dieses Aufrufs mehrfach ausgeführt werden und verursachen Kosten.
+
+Der aktive Wissensstand, API-Schlüssel und Hostingpfad bleiben erhalten. Nach git pull --ff-only auf dem Hosting eine neue Unterhaltung beginnen. Insbesondere Phasenberichte, Auftraggeber, Projektabschluss, eine Anschlussfrage und eine fachfremde Frage direkt auf der Website prüfen. Der Abnahmekatalog bleibt massgeblich für die fachliche Qualität; Quellen sind jetzt auf Antwortebene zu prüfen, nicht durch erzwungene Einzelbehauptungen.

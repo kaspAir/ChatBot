@@ -9,7 +9,7 @@
     const suggestions = document.querySelectorAll('[data-question]');
     let busy = false;
 
-    function addMessage(text, who, sources = [], version = null) {
+    function addMessage(text, who, sources = [], version = null, sourceMode = null) {
         const wrap = document.createElement('div');
         wrap.className = 'msg msg--' + who;
         const bubble = document.createElement('div');
@@ -18,10 +18,10 @@
         if (sources.length) {
             const details = document.createElement('details');
             const summary = document.createElement('summary');
-            summary.textContent = 'Textbelege im Referenzhandbuch anzeigen';
+            summary.textContent = sourceMode === 'retrieval' ? 'Gefundene Handbuchstellen anzeigen' : 'Textbelege im Referenzhandbuch anzeigen';
             details.appendChild(summary);
             const note = document.createElement('p');
-            note.textContent = 'Diese Textbelege wurden im angegebenen Kapitel gefunden. Die Nummern ordnen sie den Aussagen zu. Prüfe, ob die Schlussfolgerungen stimmen.';
+            note.textContent = sourceMode === 'retrieval' ? 'Diese Ausschnitte stammen aus der Handbuchsuche zur Frage. Sie dienen zum Nachlesen und sind keine automatische Bestätigung jedes Antwortsatzes.' : 'Diese Textbelege wurden im angegebenen Kapitel gefunden. Die Nummern ordnen sie den Aussagen zu. Prüfe, ob die Schlussfolgerungen stimmen.';
             details.appendChild(note);
             sources.forEach((source, index) => {
                 const quote = document.createElement('blockquote');
@@ -91,11 +91,11 @@
         setBusy(true);
         const waiting = addMessage('Ich bearbeite deine Frage …', 'bot');
         waiting.classList.add('is-typing');
-        const progress = setTimeout(() => { waiting.querySelector('.msg__bubble').textContent = 'Die Antwort wird noch bearbeitet. Fachliche Antworten werden zusätzlich anhand ihrer Belege geprüft.'; }, 12000);
+        const progress = setTimeout(() => { waiting.querySelector('.msg__bubble').textContent = 'Ich suche noch nach passenden Handbuchstellen und formuliere die Antwort.'; }, 12000);
         try {
             const data = await request({message});
             if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('Der Server hat keine Antwort geliefert.');
-            addMessage(data.reply, 'bot', Array.isArray(data.sources) ? data.sources : [], data.knowledge_version);
+            addMessage(data.reply, 'bot', Array.isArray(data.sources) ? data.sources : [], data.knowledge_version, data.source_mode);
         } catch (error) {
             addMessage(errorText(error), 'bot');
             input.value = message;

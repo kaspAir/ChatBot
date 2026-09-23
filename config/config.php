@@ -51,5 +51,6 @@ return [
     'api_key'         => chatbot_env('OPENAI_API_KEY'),
     'vector_store_id' => $activeStore,
     'model'           => chatbot_env('OPENAI_MODEL', 'gpt-4o'),
+    'conversation_prompt' => (string) (@file_get_contents(__DIR__ . '/conversation_prompt.txt') ?: ''),
     'system_prompt'   => (string) (@file_get_contents(__DIR__ . '/system_prompt.txt') ?: ''),
 ];

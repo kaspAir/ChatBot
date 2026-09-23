@@ -2,7 +2,7 @@
 declare(strict_types=1);
 // Administrator-Diagnose auf dem Hosting; keine HTTP-Schnittstelle.
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
-require __DIR__ . '/../src/chat.php';
+require __DIR__ . '/../src/conversation.php';
 $config = require __DIR__ . '/../config/config.php';
 $live = in_array('--live', $argv, true);
 $clean = static function ($value) use ($config): string {
@@ -30,11 +30,11 @@ foreach (glob(__DIR__ . '/../knowledge/releases/*.json') ?: [] as $path) {
         ($store === $release['vector_store_id'] ? 'gleicher Suchspeicher' : 'anderer Suchspeicher') . "\n";
 }
 if (!$live) { echo "Kein API-Aufruf. Mit --live genau einen Website-Antwortaufruf diagnostizieren.\n"; exit; }
-if (empty($config['api_key']) || $store === '' || empty($config['system_prompt'])) {
+if (empty($config['api_key']) || $store === '' || empty($config['conversation_prompt'])) {
     fwrite(STDERR, "Konfiguration unvollständig. Kein API-Aufruf.\n"); exit(1);
 }
 // Derselbe Payload wie in public/api/chat.php, kein Überschreiben durch eine Release-Version.
-$payload = hermes_payload($config, 'Wann werden in HERMES 2022 Phasenberichte erstellt?', []);
+$payload = hermes_conversation_payload($config, 'Wann werden in HERMES 2022 Phasenberichte erstellt?', []);
 $ch = curl_init('https://api.openai.com/v1/responses');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true,

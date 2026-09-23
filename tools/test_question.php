@@ -3,6 +3,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require __DIR__ . '/../src/retrieval.php';
 require __DIR__ . '/../src/verification.php';
+require __DIR__ . '/../src/conversation.php';
 $config = require __DIR__ . '/../config/config.php';
 $version = $argv[1] ?? '';
 $question = $argv[2] ?? '';
@@ -22,7 +23,7 @@ if (in_array('--local', $argv, true)) {
     if (!$evidence) { echo "Keine lokalen Treffer. Kein API-Aufruf.\n"; exit(1); }
     $payload = hermes_local_payload($config, $question, [], $evidence);
 } else {
-    $payload = hermes_payload($config, $question, []);
+    $payload = hermes_conversation_payload($config, $question, []);
 }
 $ch = curl_init('https://api.openai.com/v1/responses');
 curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true,
@@ -39,7 +40,7 @@ if ($status !== 200 || !is_array($result)) {
     fwrite(STDERR, "$text\n"); exit(1);
 }
 // Nach bestandener Wortlautprüfung folgt ein zusätzlicher API-Aufruf zur Inhaltsprüfung.
-$answer = hermes_verified_answer($config, $question, $result, $evidence);
+$answer = $evidence ? hermes_verified_answer($config, $question, $result, $evidence) : hermes_conversation_answer($result);
 echo json_encode($answer, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), "\n";
 
 if (in_array('--debug', $argv, true)) {

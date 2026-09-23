@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/../../src/verification.php';
+require __DIR__ . '/../../src/conversation.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -32,19 +32,19 @@ if (($data['reset'] ?? false) === true) {
 if (!is_string($data['message'] ?? null)) fail(400, 'Eine Textnachricht ist erforderlich.');
 $message = trim($data['message']);
 if ($message === '' || mb_strlen($message) > 4000) fail(400, 'Bitte gib eine Frage mit höchstens 4000 Zeichen ein.');
-if (!$config['api_key'] || !$config['vector_store_id'] || !$config['system_prompt']) fail(503, 'Der Assistent ist noch nicht vollständig eingerichtet.');
+if (!$config['api_key'] || !$config['vector_store_id'] || !$config['conversation_prompt']) fail(503, 'Der Assistent ist noch nicht vollständig eingerichtet.');
 // Schutz vor versehentlichen Mehrfachanfragen. Öffentliche Nutzung braucht zusätzlich Hosting-Limits.
 $now = time();
 $attempts = array_values(array_filter($_SESSION['attempts'] ?? [], fn($time) => $time > $now - 60));
 if (count($attempts) >= 6) { header('Retry-After: 60'); fail(429, 'Bitte warte eine Minute vor weiteren Fragen.'); }
 $attempts[] = $now;
 $_SESSION['attempts'] = $attempts;
-$knowledgeKey = $config['vector_store_id'] . ':' . $config['knowledge_version'];
+$knowledgeKey = 'conversation-v1:' . $config['vector_store_id'] . ':' . $config['knowledge_version'];
 if (($_SESSION['knowledge_key'] ?? '') !== $knowledgeKey) {
     unset($_SESSION['history']);
     $_SESSION['knowledge_key'] = $knowledgeKey;
 }
-$payload = hermes_payload($config, $message, $_SESSION['history'] ?? []);
+$payload = hermes_conversation_payload($config, $message, $_SESSION['history'] ?? []);
 $started = microtime(true);
 $upstreamId = '';
 $ch = curl_init('https://api.openai.com/v1/responses');
@@ -73,15 +73,15 @@ if ($rawResponse === false || $status >= 400 || !is_array($result)) {
     fail($publicStatus, $text);
 }
 if (($result['status'] ?? '') !== 'completed') fail(502, 'Die Antwort wurde nicht vollständig erstellt. Bitte versuche eine kürzere Frage.');
-$answer = hermes_verified_answer($config, $message, $result);
-if ($answer['grounded'] || in_array($answer['diagnostic'] ?? '', ['clarification', 'greeting'], true)) {
+$answer = hermes_conversation_answer($result);
+if ($answer['remember']) {
     $history = $_SESSION['history'] ?? [];
     $history[] = ['role' => 'user', 'content' => $message];
     $history[] = ['role' => 'assistant', 'content' => $answer['reply']];
     $_SESSION['history'] = array_slice($history, -6);
 }
-error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId, 'evidence_present' => $answer['grounded'], 'source_count' => count($answer['sources']), 'diagnostic' => $answer['diagnostic'] ?? null]));
-unset($answer['grounded'], $answer['diagnostic'], $answer['verification']);
+error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId, 'search_results_present' => count($answer['sources']) > 0, 'source_count' => count($answer['sources']), 'diagnostic' => $answer['diagnostic'] ?? null]));
+unset($answer['remember'], $answer['diagnostic']);
 $answer['knowledge_version'] = $config['knowledge_version'];
 respond(200, $answer);
 

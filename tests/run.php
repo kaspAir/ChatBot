@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/../src/retrieval.php';
 require __DIR__ . '/../src/verification.php';
+require __DIR__ . '/../src/conversation.php';
 $count = 0;
 function check(bool $ok, string $label): void {
     global $count;
@@ -192,5 +193,28 @@ check($mixedResult['grounded'] && str_contains($mixedResult['reply'],'ausserhalb
 $badMixed = hermes_verified_answer($verifierConfig,'HERMES und Rezept',$mixedResponse,[],fn($payload)=>['status'=>'failed']);
 check(!$badMixed['grounded'] && $badMixed['sources']===[], 'Gemischte Anfrage umgeht keine Inhaltsprüfung');
 check(in_array('response_type',$p['text']['format']['schema']['required'],true),'Antwortart im API-Schema erforderlich');
+
+$dialogConfig = ['model'=>'test','vector_store_id'=>'vs_test','conversation_prompt'=>'Handbuchdialog'];
+$dialogPayload = hermes_conversation_payload($dialogConfig,'Erkläre Phasenberichte',array_fill(0,20,['role'=>'user','content'=>'Kontext']));
+check(!isset($dialogPayload['text']) && count($dialogPayload['input'])===7, 'Freier Website-Dialog mit begrenztem Kontext');
+check($dialogPayload['tools'][0]['vector_store_ids']===['vs_test'] && $dialogPayload['store']===false, 'Dialog verwendet aktiven Suchspeicher ohne Response-Speicherung');
+$dialogResponse = ['status'=>'completed','output'=>[
+    ['type'=>'file_search_call','status'=>'completed','results'=>[['file_id'=>'file_test','text'=>'Originaltext ohne Kapitelüberschrift.']]],
+    ['type'=>'message','role'=>'assistant','content'=>[['type'=>'output_text','text'=>"Zusammenhängende Erklärung aus dem Handbuch.\u{E200}filecite\u{E202}turn0file0\u{E201}"]]],
+]];
+$dialogAnswer = hermes_conversation_answer($dialogResponse);
+check($dialogAnswer['remember'] && str_contains($dialogAnswer['reply'],'Zusammenhängende'), 'Fehlende Kapitelüberschrift blockiert keine Antwort');
+check($dialogAnswer['sources'][0]['text']==='Originaltext ohne Kapitelüberschrift.' && $dialogAnswer['source_mode']==='retrieval', 'Quellen sind tatsächliche Suchausschnitte ohne behauptete Satzprüfung');
+check(!str_contains($dialogAnswer['reply'],"\u{E200}"), 'Native Dateimarker nicht roh angezeigt');
+$dialogResponse['status']='incomplete';
+check(!hermes_conversation_answer($dialogResponse)['remember'], 'Unvollständige Antworten nicht in Verlauf');
+$dialogResponse['status']='completed';$dialogResponse['output'][0]['status']='failed';
+check(!hermes_conversation_answer($dialogResponse)['remember'], 'Fehlgeschlagene Suche bleibt technischer Fehler');
+$dialogResponse['output'][0]['status']='completed';$dialogResponse['output'][0]['results']=[];
+$dialogResponse['output'][1]['content'][0]['text']=HERMES_OUT_OF_SCOPE;
+check(hermes_conversation_answer($dialogResponse)['reply']===HERMES_OUT_OF_SCOPE, 'Fachfremder Hinweis braucht keine erfundenen Quellen');
+$dialogResponse['output'][1]['content']=[];
+check(!hermes_conversation_answer($dialogResponse)['remember'], 'Leere Antwort nicht akzeptiert');
+
 echo "$count Prüfungen erfolgreich.\n";
 
