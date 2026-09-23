@@ -1,5 +1,7 @@
 # HERMES 2022 – Assistent mit Referenzhandbuch
 
+**Übergabe an BKI:** Die [Integrationsanleitung](docs/BKI_INTEGRATION.md) beschreibt Installation, eigenen OpenAI-Zugang, Wissensübernahme, GPT-5.4, Einbindung und Abnahme. Das neue isolierte Widget wird mit `<script type="module" src="/hermaestro/assets/embed.js"></script>` eingebunden, sobald `public/` unter demselben Website-Ursprung auf `/hermaestro/` eingerichtet ist. Kein Cross-Origin-Direktaufruf. Die generierten Embed-Dateien sind eingecheckt; zum Nachführen nach UI-Änderungen `python3 tools/build_embed.py` ausführen.
+
 > Aktueller Website-Modus: natürliche Antworten aus der Handbuchsuche. Die unten dokumentierten Einzelbehauptungs- und Verifier-Prüfungen gelten nur noch für den experimentellen lokalen Modus, nicht für den Website-Dialog. Siehe Abschnitt «Vereinfachter Website-Dialog» am Ende.
 
 PHP-Anwendung für Infomaniak (PHP 8.4, cURL, mbstring). Der Browser spricht ausschliesslich mit dem eigenen Server; dieser verwendet die OpenAI Responses API mit File Search. Das Handbuch wird einmal in einen OpenAI Vector Store geladen. Es wird nicht bei jeder Frage vollständig übertragen.
@@ -9,7 +11,7 @@ PHP-Anwendung für Infomaniak (PHP 8.4, cURL, mbstring). Der Browser spricht aus
 ## Einrichtung
 
 1. Repository auf den Server übernehmen. **Webroot auf `public/` setzen**, niemals auf den Projektordner. `.env`, `src/`, `config/`, `knowledge/` und `tools/` dürfen nicht über HTTP erreichbar sein.
-2. `.env.example` nach `.env` kopieren. Dort den API-Schlüssel eines eigenen OpenAI-Projekts eintragen. Schlüssel niemals in Git, Browsercode oder Chatnachrichten einfügen. Das konfigurierte Modell muss Responses API und File Search unterstützen; `gpt-4o` ist die bisherige Voreinstellung und noch fachlich zu evaluieren.
+2. `.env.example` nach `.env` kopieren. Dort den API-Schlüssel eines eigenen OpenAI-Projekts eintragen. Schlüssel niemals in Git, Browsercode oder Chatnachrichten einfügen. Voreinstellung und empfohlenes Modell für die nächste Abnahme sind `gpt-5.4`. Bestehende `.env`-Dateien und Hosting-Umgebungsvariablen werden durch Git nicht geändert; `OPENAI_MODEL` explizit prüfen.
 3. Das freigegebene, durchsuchbare Handbuch lokal unter `knowledge/` ablegen. Kapitelüberschriften und Nummerierung müssen im extrahierten Text erhalten sein. Gescannte PDFs vorab mit OCR aufbereiten und prüfen.
 4. `php tools/setup_vectorstore.php "knowledge/handbuch.pdf"` ausführen. Dies lädt Dateien zu OpenAI hoch und kann Kosten verursachen. Erst nach bestätigter Indexierung die ausgegebene `OPENAI_VECTOR_STORE_ID` in `.env` eintragen. Bei Fehlern/Timeout vorhandenen Store im OpenAI-Projekt prüfen; nicht blind neu hochladen, da sonst verwaiste Dateien/Stores entstehen können.
 5. Testinstallation durch den Passwortschutz des Hostings absichern. Die Anwendung enthält keine Benutzerverwaltung. API-Endpunkt in diesen Schutz einschliessen.

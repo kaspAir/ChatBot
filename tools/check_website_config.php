@@ -55,4 +55,5 @@ if ($status !== 200 || !is_array($result)) {
     exit(1);
 }
 echo "Antwortstatus: " . $clean($result['status'] ?? 'unbekannt') . "\n";
+echo "Antwortmodell: " . $clean($result['model'] ?? 'unbekannt') . "\n";
 echo "Der Erzeugeraufruf wurde akzeptiert. Keine Inhaltsprüfung und keine fachliche Freigabe durch diese Diagnose.\n";

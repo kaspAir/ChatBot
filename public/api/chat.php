@@ -5,6 +5,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 ini_set('session.use_strict_mode', '1');
+// Separate cookie and session from the surrounding BKI CMS.
+session_name('BKI_HERMAESTRO');
 session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'samesite' => 'Strict']);
 session_start();
 $config = require __DIR__ . '/../../config/config.php';
@@ -66,6 +68,7 @@ $result = is_string($rawResponse) ? json_decode($rawResponse, true) : null;
 $code = (string) ($result['error']['code'] ?? '');
 // Keine Fragen, Antworten, API-Schlüssel oder unbearbeiteten Fehlermeldungen protokollieren.
 error_log(json_encode(['event' => 'hermes_api', 'request_id' => $requestId, 'upstream_request_id' => $upstreamId,
+    'model_requested' => $config['model'], 'model_returned' => $result['model'] ?? null,
     'http_status' => $status, 'curl_code' => $curlCode, 'error_code' => $code,
     'latency_ms' => (int) ((microtime(true) - $started) * 1000), 'usage' => $result['usage'] ?? null]));
 if ($rawResponse === false || $status >= 400 || !is_array($result)) {
@@ -84,4 +87,3 @@ error_log(json_encode(['event' => 'hermes_evidence', 'request_id' => $requestId,
 unset($answer['remember'], $answer['diagnostic']);
 $answer['knowledge_version'] = $config['knowledge_version'];
 respond(200, $answer);
-
