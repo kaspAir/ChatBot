@@ -1,0 +1,220 @@
+<?php
+declare(strict_types=1);
+require __DIR__ . '/../src/retrieval.php';
+require __DIR__ . '/../src/verification.php';
+require __DIR__ . '/../src/conversation.php';
+$count = 0;
+function check(bool $ok, string $label): void {
+    global $count;
+    if (!$ok) { fwrite(STDERR, "FAIL: $label\n"); exit(1); }
+    $count++;
+}
+function fixture(array $answer, ?string $evidence = null): array {
+    $evidence ??= "7.4.1.6 Reporting\nAm Ende der Phasen Konzept, Realisierung, Einführung und Umsetzung werden die Ergebnisse der Phase aufbereitet.\n3.4.1.1 Projektsteuerung\n[ERGÄNZUNG KASPAR/BKI: Es gibt keinen Phasenbericht Initialisierung.]";
+    return ['status' => 'completed', 'output' => [
+        ['type' => 'file_search_call', 'status' => 'completed', 'results' => [['file_id' => 'file_test', 'text' => $evidence]]],
+        ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($answer)]]],
+    ]];
+}
+$a = ['sufficient_evidence' => true, 'claims' => [
+    ['statement' => 'Für die Initialisierung gibt es keinen Phasenbericht.', 'chapter' => '3.4.1.1', 'evidence_quote' => 'Es gibt keinen Phasenbericht Initialisierung.'],
+]];
+$r = fixture($a);
+check(hermes_answer($r)['grounded'], 'Wörtlicher Beleg im richtigen Kapitel akzeptiert');
+check(str_contains(hermes_answer($r)['reply'], '[1] Kapitel 3.4.1.1 – Projektsteuerung'), 'Quelle aus gefundenem Titel erzeugt');
+check(count(hermes_answer($r)['sources']) === 1, 'Nur verwendeter Beleg ausgegeben');
+$bad = $a; $bad['claims'][0]['chapter'] = '99.1';
+check(!hermes_answer(fixture($bad))['grounded'], 'Erfundenes Kapitel gesperrt');
+$bad = $a; $bad['claims'][0]['chapter'] = '7.4.1.6';
+check(!hermes_answer(fixture($bad))['grounded'], 'Richtiger Wortlaut unter falschem Kapitel gesperrt');
+$bad = $a; $bad['claims'][0]['evidence_quote'] = 'Es gibt immer einen Phasenbericht Initialisierung.';
+check(!hermes_answer(fixture($bad))['grounded'], 'Erfundener Wortlaut gesperrt');
+$bad = $a; $bad['claims'][0]['chapter'] = 'Kapitel nicht ermittelt';
+check(!hermes_answer(fixture($bad))['grounded'], 'Unbestimmte Kapitelangabe gesperrt');
+$bad = $a; $bad['claims'][] = ['statement' => 'Unbelegte Zusatzbehauptung', 'chapter' => '', 'evidence_quote' => ''];
+check(!hermes_answer(fixture($bad))['grounded'], 'Unbelegte zusätzliche Aussage sperrt Antwort');
+$bad = $r; $bad['output'][0]['results'] = [];
+check(!hermes_answer($bad)['grounded'], 'Keine Treffer');
+$bad = $r; $bad['output'][0]['status'] = 'failed';
+check(!hermes_answer($bad)['grounded'], 'Fehlgeschlagene Suche');
+$bad = $r; $bad['status'] = 'incomplete';
+check(!hermes_answer($bad)['grounded'], 'Unvollständige Antwort');
+$bad = $r; $bad['output'][1]['content'][0]['text'] = 'Freitext ohne Struktur';
+check(!hermes_answer($bad)['grounded'], 'Unstrukturierter Freitext');
+check(hermes_answer(fixture(['sufficient_evidence' => false, 'claims' => []]))['diagnostic'] === 'model_abstained', 'Fachliche Enthaltung separat erkannt');
+check(hermes_normalize("Die Er-\ngebnisse  der Phase") === 'Die Ergebnisse der Phase', 'PDF-Trennungen normalisiert');
+check(hermes_sections("3.4.1.1\nProjektsteuerung\nText")[0]['title'] === 'Projektsteuerung', 'Kapitelüberschrift mit Zeilenumbruch');
+check(hermes_error(429, 'insufficient_quota')[0] === 503, 'Quota separat');
+check(hermes_error(429, 'rate_limit_exceeded')[0] === 429, 'Rate Limit separat');
+check(hermes_error(0, '')[0] === 504, 'Timeout separat');
+$p = hermes_payload(['model'=>'test', 'system_prompt'=>'test', 'vector_store_id'=>'vs_test'], 'Frage', array_fill(0, 20, ['role'=>'user','content'=>'alt']));
+check(count($p['input']) === 7, 'Kontext begrenzt');
+check($p['tool_choice'] === 'required' && $p['store'] === false, 'Suche erzwungen, keine Response-Speicherung');
+check($p['text']['format']['strict'] === true, 'Strukturiertes Antwortschema angefordert');
+$marked = $a;
+$marked['claims'][0]['evidence_quote'] = '[ERGÄNZUNG KASPAR/BKI: Es gibt keinen Phasenbericht Initialisierung.]';
+$spaced = "3.4.1.1 Projektsteuerung\n[ERGÄNZUNG KASPAR/BKI: Es gibt keinen Phasenbericht Initialisierung. ]";
+check(hermes_answer(fixture($marked, $spaced))['grounded'], 'Leerzeichen vor Markierungsende normalisiert');
+$marked['claims'][0]['evidence_quote'] = '[ERGÄNZUNG KASPAR/BKI: Es gibt einen Phasenbericht Initialisierung.]';
+check(!hermes_answer(fixture($marked, $spaced))['grounded'], 'Veränderte Negation weiterhin gesperrt');
+$before = $a;
+$before['claims'][0]['chapter'] = '1.4.4.1';
+check(!hermes_answer(fixture($before, "Es gibt keinen Phasenbericht Initialisierung.\n1.4.4.1 Abschluss\nAnderer Abschnitt."))['grounded'], 'Text vor Überschrift nicht nachfolgendem Kapitel zugeordnet');
+$mixed = $a;
+$mixed['claims'][] = $before['claims'][0];
+$checks = hermes_diagnose_claims(fixture($mixed));
+check(count($checks) === 2 && $checks[0]['diagnostic'] === 'evidence_matched' && $checks[1]['diagnostic'] === 'quote_not_found_in_chapter', 'Einzelfehler sichtbar, ohne gesamte Antwort freizugeben');
+$sample = "4.4.1.30 Phasenbericht\n" . str_repeat("Der Phasenbericht dokumentiert Ergebnisse. ", 5) . "\n7.4.1.6 Reporting\nPhasenbericht\nAm Ende der Phasen Konzept, Realisierung, Einführung und Umsetzung werden die Ergebnisse der Phase aufbereitet.\n" . str_repeat("Weitere Angaben zum Reporting. ", 5);
+$index = hermes_build_index($sample, 'test-v1');
+$hits = hermes_retrieve($index, 'Welche Phasen haben einen Phasenbericht?');
+check(in_array('7.4.1.6', array_column($hits, 'chapter')), 'Reporting über Unterabschnitt gefunden');
+check(in_array('4.4.1.30', array_column($hits, 'chapter')), 'Ergebnisbeschreibung gefunden');
+check($hits === hermes_retrieve($index, 'Welche Phasen haben einen Phasenbericht?'), 'Suche reproduzierbar');
+check(hermes_retrieve($index, 'Quantenverschränkung') === [], 'Unbekannter Suchbegriff ohne Treffer');
+$localEvidence = [['text' => "3.4.1.1 Projektsteuerung\nEs gibt keinen Phasenbericht Initialisierung."]];
+$localResponse = fixture($a); unset($localResponse['output'][0]);
+check(hermes_answer($localResponse, $localEvidence)['grounded'], 'Lokaler Textbeleg ohne erfundenen Tool-Aufruf geprüft');
+$localPayload = hermes_local_payload(['model'=>'test','system_prompt'=>'test','vector_store_id'=>'vs_test'], 'Frage', [], $localEvidence);
+check(!isset($localPayload['tools']) && str_contains($localPayload['instructions'], 'referenzhandbuch_daten'), 'Antwort nutzt vorab ausgewählte Belege');
+$original = "6.4.3.9 Testverantwortlicher\n" . str_repeat("Rollenbeschreibung für Testverantwortliche. ", 8);
+$register = "6.4.3.9 Testverantwortli-\n" . str_repeat("Registerverweis Phasenbericht Initialisierung abgeschlossen. ", 20);
+$duplicateIndex = hermes_build_index($original . "\n" . $register, 'test-v2');
+check($duplicateIndex['passages'][0]['title'] === 'Testverantwortlicher', 'Langer späterer Registereintrag ersetzt keine Kapitelbeschreibung');
+check(!str_contains(implode(' ', array_column($duplicateIndex['passages'], 'text')), 'Registerverweis'), 'Registerinhalt nicht dem ursprünglichen Kapitel zugeschlagen');
+$rankIndex = hermes_build_index($sample . "\n8.1 Fremdthema\n" . str_repeat("Initialisierung abgeschlossen Phasen abgeschlossen. ", 10), 'test-v2');
+$rankHits = hermes_retrieve($rankIndex, 'Welche Phasen werden mit einem Phasenbericht abgeschlossen? Gibt es einen Phasenbericht für die Initialisierung?');
+check(!in_array('8.1', array_column($rankHits, 'chapter')), 'Explizites Kapitelthema verdrängt Treffer nur auf allgemeine Fragewörter');
+check($rankIndex['format'] === 2, 'Neue Indexversion erzwingt Neuaufbau');
+$reportQuote = 'Am Ende der Phasen Konzept, Realisierung, Einführung und Umsetzung werden die Ergebnisse der Phase und die Planung des weiteren Projektverlaufs für den Auftraggeber so aufbereitet, dass er den Entscheid zum weiteren Projektvorgehen (in der Regel zur Phasenfreigabe) treffen kann.';
+$reportEvidence = [['text' => "7.4.1.6 Reporting\n" . $reportQuote]];
+$reportPayload = hermes_local_payload(['model'=>'test','system_prompt'=>'test','vector_store_id'=>'vs_test'], 'Phasenbericht?', [], $reportEvidence);
+$reportCatalog = hermes_evidence_catalog($reportEvidence);
+$choices = array_column($reportCatalog, 'evidence_quote');
+check(count($choices) > 0 && str_contains($choices[0], $reportQuote), 'Lokales Antwortschema bietet vollständigen Reporting-Beleg an');
+$shortened = str_replace('(in der Regel zur Phasenfreigabe)', '...', $reportQuote);
+check(!in_array($shortened, $choices, true), 'Vom Modell gekürztes Zitat ist keine zulässige Schema-Auswahl');
+$reportClaim = ['sufficient_evidence'=>true, 'claims'=>[['statement'=>'Phasenbericht für die genannten Phasen.', 'chapter'=>'7.4.1.6', 'evidence_quote'=>$choices[0]]]];
+check(hermes_answer(fixture($reportClaim), $reportEvidence)['grounded'], 'Vorgegebener Originalausschnitt besteht weiterhin die Quellenprüfung');
+$reportClaim['claims'][0]['chapter'] = '4.4.1.30';
+check(!hermes_answer(fixture($reportClaim), $reportEvidence)['grounded'], 'Originalausschnitt unter falscher Kapitelnummer bleibt gesperrt');
+$emptyRejected = false;
+try { hermes_quote_options([]); } catch (RuntimeException $e) { $emptyRejected = true; }
+check($emptyRejected, 'Leere Zitatauswahl führt nicht zu freier Zitatgenerierung');
+// Prüft die Sperrlogik mit simulierten Urteilen, nicht die Qualität des Prüfmodells.
+function review_fixture(array $checks, bool $answers = true): array {
+    return ['status'=>'completed','output'=>[['type'=>'message','content'=>[['type'=>'output_text','text'=>json_encode(['answers_question'=>$answers,'checks'=>$checks])]]]]];
+}
+$cases = require __DIR__ . '/verification_cases.php';
+$claims = array_column($cases, 'claim');
+$verifierConfig = ['model'=>'test','api_key'=>'unused'];
+$vp = hermes_verification_payload($verifierConfig, 'Welche Phasen?', $claims);
+check(!isset($vp['tools']) && $vp['store'] === false, 'Prüfer hat keine Suche und speichert keine Response');
+$pairs = json_decode($vp['input'][0]['content'], true)['pairs'];
+check(count($pairs) === count($cases) && $pairs[0]['evidence_quote'] === $claims[0]['evidence_quote'] && !isset($pairs[0]['chapter']), 'Prüfer erhält ausschliesslich konkrete Aussage-Beleg-Paare');
+$checks = [];
+foreach ($cases as $i=>$case) $checks[] = ['claim'=>$i+1,'supported'=>$case['expected'],'reason'=>'Simuliertes fachliches Urteil'];
+check(hermes_verification_result(review_fixture($checks), count($cases))['diagnostic'] === 'claim_not_supported', 'Ein unbelegter Teil sperrt die Gesamtantwort');
+$one = [['claim'=>1,'supported'=>true,'reason'=>'Der Beleg trägt die Aussage.']];
+check(hermes_verification_result(review_fixture($one), 1)['passed'], 'Vollständige Zustimmung wird erkannt');
+check(!hermes_verification_result(review_fixture($one, false), 1)['passed'], 'Unbeantwortete Teilfrage verhindert Freigabe');
+check(!hermes_verification_result(review_fixture($one), 2)['passed'], 'Fehlendes Einzelurteil verhindert Freigabe');
+check(!hermes_verification_result(review_fixture([$one[0],$one[0]]), 2)['passed'], 'Doppelte Aussage-ID verhindert Freigabe');
+$wrong = $one; $wrong[0]['claim'] = 2;
+check(!hermes_verification_result(review_fixture($wrong), 1)['passed'], 'Fremde Aussage-ID verhindert Freigabe');
+$wrong = $one; $wrong[0]['supported'] = 'true';
+check(!hermes_verification_result(review_fixture($wrong), 1)['passed'], 'Ungültiger Wahrheitswert verhindert Freigabe');
+$incomplete = review_fixture($one); $incomplete['status'] = 'incomplete';
+check(!hermes_verification_result($incomplete, 1)['passed'], 'Abgebrochener Prüflauf verhindert Freigabe');
+$candidate = fixture(['sufficient_evidence'=>true,'claims'=>[$claims[0]]], "7.4.1.6 Reporting\n".$claims[0]['evidence_quote']);
+check(hermes_answer($candidate)['grounded'], 'Reproduktion: thematisch unpassendes Originalzitat besteht Wortlautprüfung');
+$denied = hermes_verified_answer($verifierConfig, 'Welche Phasen?', $candidate, [], fn($payload)=>review_fixture([['claim'=>1,'supported'=>false,'reason'=>'Keine Phasenliste im ausgewählten Zitat.']]));
+check(!$denied['grounded'] && $denied['sources'] === [] && !str_contains($denied['reply'],'Konzept'), 'Ablehnendes Prüfurteil hält Antwort und Quellen zurück');
+$unavailable = hermes_verified_answer($verifierConfig, 'Frage', $candidate, [], fn($payload)=>['status'=>'failed']);
+check(!$unavailable['grounded'], 'Prüfdienstfehler gibt keine ungeprüfte Antwort frei');
+$exception = hermes_verified_answer($verifierConfig, 'Frage', $candidate, [], function($payload){throw new RuntimeException('secret');});
+check(!$exception['grounded'] && !str_contains(json_encode($exception),'secret'), 'Prüfausnahme sperrt ohne interne Fehlermeldung');
+$calls = 0;
+hermes_verified_answer($verifierConfig, 'Frage', fixture(['sufficient_evidence'=>false,'claims'=>[]]), [], function($payload)use(&$calls){$calls++;return [];});
+check($calls === 0, 'Enthaltung verursacht keinen Prüfaufruf');
+$goodCandidate = fixture(['sufficient_evidence'=>true,'claims'=>[$claims[1]]], "7.4.1.6 Reporting\n".$claims[1]['evidence_quote']);
+$approved = hermes_verified_answer($verifierConfig, 'Welche Phasen?', $goodCandidate, [], fn($payload)=>review_fixture($one));
+check($approved['grounded'] && $approved['diagnostic']==='semantic_check_passed', 'Antwort erst nach beiden bestandenen Prüfungen freigegeben');
+$id = array_key_first($reportCatalog);
+$idAnswer = ['sufficient_evidence'=>true,'claims'=>[['evidence_id'=>$id,'statement'=>'Phasenberichte werden in den genannten Phasen erstellt.']]];
+$idResponse = fixture($idAnswer); unset($idResponse['output'][0]);
+check(hermes_answer($idResponse,$reportEvidence)['grounded'], 'Beleg-ID wird aus aktuellen Textstellen aufgelöst');
+$props = $reportPayload['text']['format']['schema']['properties']['claims']['items']['properties'];
+check(isset($props['evidence_id']) && !isset($props['chapter']) && !isset($props['evidence_quote']), 'Lokales Modell erzeugt weder Kapitelnummer noch Zitat');
+check($props['evidence_id']['enum'] === array_keys($reportCatalog), 'Schema erlaubt nur IDs des aktuellen Katalogs');
+$unknown = $idAnswer; $unknown['claims'][0]['evidence_id']='Bunknown';
+check(!hermes_answer(fixture($unknown),$reportEvidence)['grounded'], 'Unbekannte Beleg-ID wird gesperrt');
+check(!hermes_answer($idResponse,[])['grounded'], 'ID ohne aktuelle Textstellen wird gesperrt');
+$mixedId = $idAnswer; $mixedId['claims'][0]['chapter']='99.1';
+check(!hermes_answer(fixture($mixedId),$reportEvidence)['grounded'], 'Eigene Kapitelangabe neben Beleg-ID wird gesperrt');
+$receivedQuote = null;
+$idApproved = hermes_verified_answer($verifierConfig,'Frage',$idResponse,$reportEvidence,function($payload)use(&$receivedQuote,$one){
+    $receivedQuote=json_decode($payload['input'][0]['content'],true)['pairs'][0]['evidence_quote'];
+    return review_fixture($one);
+});
+check($idApproved['grounded'] && $receivedQuote === $reportCatalog[$id]['evidence_quote'], 'Inhaltsprüfer erhält das vom Server aufgelöste Originalzitat');
+$idDenied=hermes_verified_answer($verifierConfig,'Frage',$idResponse,$reportEvidence,fn($payload)=>review_fixture([['claim'=>1,'supported'=>false,'reason'=>'Unpassender Beleg.']]));
+check(!$idDenied['grounded'], 'Auch gültige ID wird bei unpassendem Inhalt gesperrt');
+check(hermes_diagnose_claims($idResponse,$reportEvidence)[0]['chapter']==='7.4.1.6','ID-Diagnose zeigt serverseitig zugeordnetes Kapitel');
+$flatTable = 'Auftraggeber, Projektleiter Meilenstein Phasenfreigabe Auftraggeber, Projektleiter, Projektausschuss Liste Projektentscheide Steuerung Entscheid Releasefreigabe treffen Checkliste Releasefreigabe Auftraggeber, Anwendervertreter';
+check(hermes_ambiguous_table_quote($flatTable), 'Flache Zuordnungstabelle wird erkannt');
+$roleProse = 'Der Auftraggeber entscheidet über das Ende der Lösungsentstehung sowie über die Freigabe der Phase Abschluss.';
+check(!hermes_ambiguous_table_quote($roleProse), 'Explizite Entscheidungsbeschreibung bleibt zulässig');
+$tableEvidence = [['text'=>"6.4.1.1 Auftraggeber\n".$roleProse."\n".$flatTable]];
+$filtered = hermes_evidence_catalog($tableEvidence);
+check(!in_array($flatTable,array_column($filtered,'evidence_quote'),true), 'Unsichere Tabellenfragmente nicht im Belegkatalog');
+$tableClaim = ['sufficient_evidence'=>true,'claims'=>[['statement'=>'Alle Rollen entscheiden gemeinsam.','chapter'=>'6.4.1.1','evidence_quote'=>$flatTable]]];
+check(hermes_answer(fixture($tableClaim,$tableEvidence[0]['text']))['diagnostic']==='ambiguous_table_evidence', 'Auch historischer freier Tabellenbeleg wird gesperrt');
+$comparisonText = "4.4.1.30 Phasenbericht\n".str_repeat('Der Phasenbericht beschreibt eine Phase. ',6)."\n4.4.1.45 Releasebericht\n".str_repeat('Der Releasebericht beschreibt ein Release. ',6);
+$comparisonIndex = hermes_build_index($comparisonText,'compare-v1');
+$comparisonHits = hermes_retrieve($comparisonIndex,'Wie unterscheiden sich Releasebericht und Phasenbericht?',2);
+check(count(array_intersect(['4.4.1.30','4.4.1.45'],array_column($comparisonHits,'chapter')))===2,'Vergleich liefert beide explizit genannten Ergebnisbeschreibungen');
+check(hermes_retrieve($comparisonIndex,'Quantenverschränkung')===[],'Vergleichserweiterung erfindet keine unbekannten Treffer');
+// Nichtfachliche Antworten sind serverseitige Texte, keine frei generierten Aussagen.
+foreach (['out_of_scope', 'clarification', 'greeting', 'insufficient'] as $type) {
+    $nonAnswer = fixture(['response_type'=>$type, 'sufficient_evidence'=>false, 'claims'=>[]]);
+    $calls = 0;
+    $result = hermes_verified_answer($verifierConfig, 'Frage', $nonAnswer, [], function($payload)use(&$calls){$calls++;return [];});
+    check(!$result['grounded'] && $result['sources'] === [] && $calls === 0, "Hinweis $type ohne Fachbehauptung oder Prüfaufruf");
+    if ($type === 'out_of_scope') check($result['reply'] === HERMES_OUT_OF_SCOPE, 'Fachfremde Frage hat eigenen festen Hinweis');
+    $contradiction = ['response_type'=>$type, 'sufficient_evidence'=>false, 'claims'=>$a['claims']];
+    check(hermes_answer(fixture($contradiction))['diagnostic']==='inconsistent_response_type', 'Fachbehauptung im Hinweismodus gesperrt');
+}
+$unknownType = ['response_type'=>'free_text','sufficient_evidence'=>false,'claims'=>[]];
+check(hermes_answer(fixture($unknownType))['diagnostic']==='invalid_response_type','Unbekannte Antwortart gesperrt');
+$mixedAnswer = ['response_type'=>'mixed','sufficient_evidence'=>true,'claims'=>[$claims[1]]];
+$mixedResponse = fixture($mixedAnswer, "7.4.1.6 Reporting\n".$claims[1]['evidence_quote']);
+$mixedResult = hermes_verified_answer($verifierConfig,'HERMES und Rezept',$mixedResponse,[],fn($payload)=>review_fixture($one));
+check($mixedResult['grounded'] && str_contains($mixedResult['reply'],'ausserhalb von HERMES'), 'Gemischte Anfrage: belegter Fachteil und feste Ablehnung');
+$badMixed = hermes_verified_answer($verifierConfig,'HERMES und Rezept',$mixedResponse,[],fn($payload)=>['status'=>'failed']);
+check(!$badMixed['grounded'] && $badMixed['sources']===[], 'Gemischte Anfrage umgeht keine Inhaltsprüfung');
+check(in_array('response_type',$p['text']['format']['schema']['required'],true),'Antwortart im API-Schema erforderlich');
+
+$dialogConfig = ['model'=>'test','vector_store_id'=>'vs_test','conversation_prompt'=>'Handbuchdialog'];
+$dialogPayload = hermes_conversation_payload($dialogConfig,'Erkläre Phasenberichte',array_fill(0,20,['role'=>'user','content'=>'Kontext']));
+check(!isset($dialogPayload['text']) && count($dialogPayload['input'])===7, 'Freier Website-Dialog mit begrenztem Kontext');
+check($dialogPayload['tools'][0]['vector_store_ids']===['vs_test'] && $dialogPayload['store']===false, 'Dialog verwendet aktiven Suchspeicher ohne Response-Speicherung');
+$dialogResponse = ['status'=>'completed','output'=>[
+    ['type'=>'file_search_call','status'=>'completed','results'=>[['file_id'=>'file_test','text'=>'Originaltext ohne Kapitelüberschrift.']]],
+    ['type'=>'message','role'=>'assistant','content'=>[['type'=>'output_text','text'=>"Zusammenhängende Erklärung aus dem Handbuch.\u{E200}filecite\u{E202}turn0file0\u{E201}"]]],
+]];
+$dialogAnswer = hermes_conversation_answer($dialogResponse);
+check($dialogAnswer['remember'] && str_contains($dialogAnswer['reply'],'Zusammenhängende'), 'Fehlende Kapitelüberschrift blockiert keine Antwort');
+check($dialogAnswer['sources'][0]['text']==='Originaltext ohne Kapitelüberschrift.' && $dialogAnswer['source_mode']==='retrieval', 'Quellen sind tatsächliche Suchausschnitte ohne behauptete Satzprüfung');
+check(!str_contains($dialogAnswer['reply'],"\u{E200}"), 'Native Dateimarker nicht roh angezeigt');
+$dialogResponse['status']='incomplete';
+check(!hermes_conversation_answer($dialogResponse)['remember'], 'Unvollständige Antworten nicht in Verlauf');
+$dialogResponse['status']='completed';$dialogResponse['output'][0]['status']='failed';
+check(!hermes_conversation_answer($dialogResponse)['remember'], 'Fehlgeschlagene Suche bleibt technischer Fehler');
+$dialogResponse['output'][0]['status']='completed';$dialogResponse['output'][0]['results']=[];
+$dialogResponse['output'][1]['content'][0]['text']=HERMES_OUT_OF_SCOPE;
+check(hermes_conversation_answer($dialogResponse)['reply']===HERMES_OUT_OF_SCOPE, 'Fachfremder Hinweis braucht keine erfundenen Quellen');
+$dialogResponse['output'][1]['content']=[];
+check(!hermes_conversation_answer($dialogResponse)['remember'], 'Leere Antwort nicht akzeptiert');
+
+echo "$count Prüfungen erfolgreich.\n";
+

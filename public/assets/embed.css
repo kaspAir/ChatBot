@@ -1,4 +1,4 @@
-:root {
+:host {
     --bg: #f4f6f9;
     --panel: #ffffff;
     --border: #e2e8f0;
@@ -12,7 +12,7 @@
 
 * { box-sizing: border-box; }
 
-body {
+:host {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
@@ -196,6 +196,95 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); 
     .chat__header { padding: 12px; } .chat__actions { gap: 6px; }
     .chat__welcome { padding: 16px; } .chat__welcome h2 { font-size: 1.35rem; }
     .chat__eyebrow { display: none; }
-    .demo-page h1 { margin-top: 12vh; } .chat-is-open { overflow: hidden; }
+    .demo-page h1 { margin-top: 12vh; } 
 }
-@media (max-height: 500px) { .chat { bottom: 8px; height: calc(100dvh - 16px); } .chat-is-open .chat-launcher { display: none; } }
+@media (max-height: 500px) { .chat { bottom: 8px; height: calc(100dvh - 16px); } :host(.chat-is-open) .chat-launcher { display: none; } }
+
+
+
+      .cls-1 {
+        clip-path: url(#clippath-6);
+      }
+
+      .cls-2 {
+        clip-path: url(#clippath-7);
+      }
+
+      .cls-3 {
+        fill: #d4146c;
+      }
+
+      .cls-4 {
+        clip-path: url(#clippath-15);
+      }
+
+      .cls-5 {
+        clip-path: url(#clippath-4);
+      }
+
+      .cls-6 {
+        fill: #c3c8cd;
+      }
+
+      .cls-7 {
+        clip-path: url(#clippath-9);
+      }
+
+      .cls-8 {
+        clip-path: url(#clippath-10);
+      }
+
+      .cls-9 {
+        fill: #fff;
+      }
+
+      .cls-10 {
+        clip-path: url(#clippath-11);
+      }
+
+      .cls-11 {
+        fill: none;
+      }
+
+      .cls-12 {
+        clip-path: url(#clippath-1);
+      }
+
+      .cls-13 {
+        clip-path: url(#clippath-5);
+      }
+
+      .cls-14 {
+        clip-path: url(#clippath-8);
+      }
+
+      .cls-15 {
+        clip-path: url(#clippath-3);
+      }
+
+      .cls-16 {
+        clip-path: url(#clippath-12);
+      }
+
+      .cls-17 {
+        clip-path: url(#clippath-14);
+      }
+
+      .cls-18 {
+        fill-rule: evenodd;
+      }
+
+      .cls-19 {
+        clip-path: url(#clippath-2);
+      }
+
+      .cls-20 {
+        clip-path: url(#clippath-13);
+      }
+
+      .cls-21 {
+        clip-path: url(#clippath);
+      }
+    
+:host { all: initial; display: block; position: fixed; width: 0; height: 0; right: 0; bottom: 0; z-index: 10000; font: 16px system-ui, sans-serif; color: #1f2937; }
+:host([hidden]) { display: none; }

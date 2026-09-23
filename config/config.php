@@ -40,9 +40,17 @@ function chatbot_env(string $key, ?string $default = null): ?string
     return ($v === false || $v === '') ? $default : $v;
 }
 
+$activePath = __DIR__ . '/../knowledge/active.json';
+$active = is_file($activePath) ? json_decode((string) file_get_contents($activePath), true) : null;
+// Eine beschädigte aktive Konfiguration darf nicht still auf einen anderen Wissensstand wechseln.
+$activeStore = is_file($activePath) ? ($active['vector_store_id'] ?? null) : chatbot_env('OPENAI_VECTOR_STORE_ID');
+
 return [
+    'knowledge_version' => $active['version'] ?? 'unversioniert',
+
     'api_key'         => chatbot_env('OPENAI_API_KEY'),
-    'vector_store_id' => chatbot_env('OPENAI_VECTOR_STORE_ID'),
-    'model'           => chatbot_env('OPENAI_MODEL', 'gpt-4o'),
+    'vector_store_id' => $activeStore,
+    'model'           => chatbot_env('OPENAI_MODEL', 'gpt-5.4'),
+    'conversation_prompt' => (string) (@file_get_contents(__DIR__ . '/conversation_prompt.txt') ?: ''),
     'system_prompt'   => (string) (@file_get_contents(__DIR__ . '/system_prompt.txt') ?: ''),
 ];

@@ -1,5 +1,7 @@
 # Secrets
 .env
+.env.*
+!.env.example
 
 # Knowledge-Dokumente nicht ins Repo (nur lokal für den einmaligen Upload nötig)
 /knowledge/*
